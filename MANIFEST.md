@@ -10,8 +10,10 @@ Bullish stock scanner with backtesting. Scores stocks on technical indicators an
 
 ## Key Files
 
-- `backend/core/scoring_engine.py` - V2 gradient scoring (RSI, ROC, proximity, MACD, SMA, EMA)
+- `backend/core/scoring_engine.py` - V2 gradient scoring + Stage 2 + Pattern bonus (RSI, ROC, proximity, MACD, SMA, EMA)
 - `backend/core/indicator_calculator.py` - Computes 10 technical indicators
+- `backend/core/stage_classifier.py` - Minervini Stage 2 classification (5 checks)
+- `backend/core/pattern_detector.py` - VCP, Flat Base, Darvas Box, Tight Flag detection
 - `backend/backtest/engine.py` - Backtesting engine (point-in-time, no look-ahead)
 - `backend/backtest/metrics.py` - Confusion matrix, accuracy, precision, recall, F1
 - `backend/api/backtest_endpoints.py` - POST /api/v1/backtest/single and /rolling
@@ -50,5 +52,7 @@ cd frontend && npx tsc --noEmit
 
 ## Optimal Backtest Settings
 
-Score threshold: 40, Gain threshold: 3%, Horizon: 30 days.
-Gives F1=79%, Precision=83%, Recall=75% on 495 trades across 5 dates.
+Score threshold: 50, Gain threshold: 5%, Horizon: 30 days.
+Gives Precision=66%, Recall=58%, F1=62% on 150 trades (V2+Stage+Pattern engine).
+For higher precision: Score≥67 gives Precision=76% but Recall=28%.
+Use the UI sliders to find your preferred tradeoff.

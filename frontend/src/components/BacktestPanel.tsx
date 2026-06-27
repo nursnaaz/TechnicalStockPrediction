@@ -63,9 +63,10 @@ export default function BacktestPanel() {
   const [error, setError] = useState<string | null>(null);
 
   // Dynamic thresholds (sliders) - optimized defaults from backtest analysis
-  // Score≥40, Gain≥3% gives best F1=79%, Precision=83%, Recall=75%
-  const [scoreThreshold, setScoreThreshold] = useState(40);
-  const [gainThreshold, setGainThreshold] = useState(3);
+  // V2+Stage+Pattern engine: Score≥50, Gain≥5% is balanced (Prec=66%, Rec=58%, F1=62%)
+  // Use sliders to explore: lower score = more TP but more FP too
+  const [scoreThreshold, setScoreThreshold] = useState(50);
+  const [gainThreshold, setGainThreshold] = useState(5);
   const [sortingColumn, setSortingColumn] = useState<{ sortingField: string } | undefined>(undefined);
   const [sortingDescending, setSortingDescending] = useState(false);
 
