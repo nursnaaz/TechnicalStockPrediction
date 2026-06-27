@@ -8,6 +8,7 @@ and defines the main application lifecycle.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.endpoints import router
+from api.backtest_endpoints import backtest_router
 from core.scan_store import ScanStore
 from config import config
 from utils.logging import setup_logging, get_logger
@@ -36,6 +37,7 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(router, prefix="/api/v1")
+app.include_router(backtest_router, prefix="/api/v1")
 
 
 @app.on_event("startup")

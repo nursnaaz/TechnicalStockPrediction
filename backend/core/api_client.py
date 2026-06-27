@@ -165,6 +165,74 @@ class RestApiClient:
         logger.error(f"Failed to fetch {ticker} after {self.max_retries} attempts")
         raise ApiError(f"Failed to fetch data for {ticker} after {self.max_retries} retries: {last_error}")
     
+    async def fetch_stock_data_range(
+        self, ticker: str, from_date: str, to_date: str
+    ) -> list:
+        """
+        Fetch historical OHLCV data for a ticker within a specific date range.
+        
+        Used by backtesting to get forward-looking price data.
+        
+        Args:
+            ticker: Stock symbol (e.g., "AAPL")
+            from_date: Start date (YYYY-MM-DD, inclusive)
+            to_date: End date (YYYY-MM-DD, inclusive)
+            
+        Returns:
+            List of bar dicts with keys: date, open, high, low, close, volume
+            
+        Raises:
+            ApiError: After max_retries failed attempts
+        """
+        endpoint = f"/v2/aggs/ticker/{ticker}/range/1/day/{from_date}/{to_date}"
+        url = f"{self.base_url}{endpoint}"
+        params = {"apiKey": self.api_key, "adjusted": "true", "sort": "asc"}
+        
+        last_error = None
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                response = await self.client.get(url, params=params)
+                response.raise_for_status()
+                data = response.json()
+                
+                if "results" not in data or not data["results"]:
+                    logger.warning(f"No range data for {ticker} ({from_date} to {to_date})")
+                    return []
+                
+                bars = []
+                for bar in data["results"]:
+                    # Convert timestamp (ms) to date string
+                    ts_seconds = bar["t"] / 1000
+                    bar_date = datetime.utcfromtimestamp(ts_seconds).strftime("%Y-%m-%d")
+                    bars.append({
+                        "date": bar_date,
+                        "open": bar["o"],
+                        "high": bar["h"],
+                        "low": bar["l"],
+                        "close": bar["c"],
+                        "volume": bar["v"]
+                    })
+                
+                logger.debug(f"Fetched {len(bars)} bars for {ticker} ({from_date} to {to_date})")
+                return bars
+                
+            except httpx.HTTPStatusError as e:
+                last_error = e
+                logger.warning(f"HTTP error for {ticker} range (attempt {attempt}): {e.response.status_code}")
+            except httpx.RequestError as e:
+                last_error = e
+                logger.warning(f"Request error for {ticker} range (attempt {attempt}): {e}")
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Error for {ticker} range (attempt {attempt}): {e}")
+            
+            if attempt < self.max_retries:
+                delay = 2 ** (attempt - 1)
+                await asyncio.sleep(delay)
+        
+        logger.error(f"Failed to fetch range data for {ticker}: {last_error}")
+        raise ApiError(f"Failed to fetch range data for {ticker}: {last_error}")
+
     def clear_cache(self) -> None:
         """Clear in-memory cache. Called at start of new scan session."""
         logger.debug(f"Clearing cache ({len(self._cache)} entries)")
