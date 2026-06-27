@@ -97,6 +97,33 @@ class ScoringEngine:
 
         total_score += min(trend_score, 20)
 
+        # === RECOVERY BONUS (0-15 pts) ===
+        # Catches oversold bounces — stocks below MAs but showing recovery signals
+        # This is critical for pullback periods where trend scores are low
+        recovery_score = 0.0
+        if indicators.sma_50 is not None and indicators.sma_50 > 0:
+            dist_from_sma50 = ((current_price - indicators.sma_50) / indicators.sma_50) * 100
+            # Only apply recovery logic if stock is BELOW SMA50 (otherwise trend logic handles it)
+            if dist_from_sma50 < 0 and dist_from_sma50 > -20:
+                # RSI oversold recovery: stock was beaten down but RSI showing life
+                if indicators.rsi_14 is not None:
+                    if 30 <= indicators.rsi_14 <= 50:
+                        recovery_score += 6  # Recovering from oversold
+                    elif indicators.rsi_14 < 30:
+                        recovery_score += 4  # Still oversold — risky but bounce potential
+                
+                # Positive ROC while below MA = early recovery momentum
+                if indicators.roc_10 is not None and indicators.roc_10 > 0:
+                    recovery_score += 5  # Price turning up despite being below MAs
+                    if indicators.roc_10 > 3:
+                        recovery_score += 2  # Strong recovery momentum
+                
+                # Near SMA50 from below = about to reclaim
+                if dist_from_sma50 > -5:
+                    recovery_score += 2  # Close to reclaiming key MA
+
+        total_score += min(recovery_score, 15)
+
         # === COMPONENT 2: MOMENTUM (0-20 pts) ===
         # Is momentum building or fading?
         momentum_score = 0.0
