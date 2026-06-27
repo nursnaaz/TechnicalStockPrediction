@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Update Workspace Manifest",
+  "description": "After significant code changes, regenerate MANIFEST.md with a plain-English summary of what exists in the workspace",
+  "version": "1",
+  "when": {
+    "type": "postToolUse",
+    "toolTypes": [
+      "write"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review the recent changes. If 50 or more lines of code have been written cumulatively, regenerate the file MANIFEST.md at the project root. The manifest must be a simple, plain-English summary of the workspace. No AI-style formatting, no em-dashes, no verbose descriptions. Use short sentences. Structure it as: (1) Project name and one-line purpose, (2) What folders exist and what each one does in one line, (3) Key files worth knowing about, (4) Current status: what is built, what is not yet built, (5) How to run it (commands only, no explanation). Keep the whole file under 60 lines. Write it like a human developer would write a quick note for themselves."
+  }
+}

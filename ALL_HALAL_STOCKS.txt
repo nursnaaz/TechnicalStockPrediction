@@ -1,0 +1,84 @@
+# ALL HALAL STOCKS - COMMA SEPARATED
+# Copy the list below and paste directly into the scanner UI
+
+# ========================================
+# COMPLETE LIST: 150+ Major Halal Stocks
+# ========================================
+# NOTE: This will take approximately 30-40 seconds to scan
+# The scanner processes up to 5 stocks concurrently
+
+AAPL, MSFT, NVDA, GOOGL, GOOG, TSLA, AVGO, LLY, JNJ, UNH, PFE, ABBV, TMO, ABT, DHR, MRK, BMY, AMGN, GILD, REGN, VRTX, ISRG, ELV, CI, BSX, IDXX, SYK, HD, COST, TGT, NKE, SBUX, MCD, CMG, LULU, BKNG, ABNB, ORCL, ADBE, CRM, CSCO, INTC, AMD, QCOM, TXN, AMAT, LRCX, KLAC, SNPS, CDNS, MRVL, PG, KO, PEP, WMT, CL, KMB, GIS, K, HSY, MDLZ, KHC, CLX, CHD, BA, CAT, DE, UPS, HON, GE, LMT, RTX, EMR, ETN, PCAR, ODFL, URI, XOM, CVX, COP, SLB, EOG, PSX, MPC, VLO, OXY, HAL, DUK, LIN, APD, SHW, FCX, NEM, DD, DOW, PPG, ECL, T, VZ, TMUS, PLD, AMT, EQIX, PSA, O, WELL, DLR, CBRE, V, MA, PYPL, FIS, FISV, SHOP, UBER, DASH, DDOG, CRWD, ZS, PANW, NET, MDB, SNOW, NOW, TEAM, ZM, DOCU, TWLO, RBLX, ROKU, TSM, BBY, IBM, HPQ, DELL, STX, WDC, MU, NXPI, ON, ADI, MPWR, ENPH, SEDG, FSLR, PLUG, CHPT, LCID, RIVN, F, GM, HMC, TM, STLA
+
+# ========================================
+# RECOMMENDED: Top 100 Most Liquid Halal Stocks
+# ========================================
+# Faster scan (20-25 seconds), better liquidity, more reliable signals
+
+AAPL, MSFT, NVDA, GOOGL, GOOG, TSLA, AVGO, LLY, JNJ, UNH, PFE, ABBV, TMO, ABT, DHR, MRK, BMY, AMGN, GILD, REGN, VRTX, ISRG, HD, COST, TGT, NKE, SBUX, MCD, CMG, LULU, PG, KO, PEP, WMT, ORCL, ADBE, CRM, CSCO, INTC, AMD, QCOM, TXN, AMAT, LRCX, KLAC, MRVL, BA, CAT, DE, UPS, HON, GE, LMT, RTX, XOM, CVX, COP, SLB, EOG, LIN, APD, SHW, T, VZ, TMUS, V, MA, PYPL, FIS, FISV, SHOP, UBER, DDOG, CRWD, ZS, PANW, NET, MDB, SNOW, NOW, TEAM, ZM, TSM, IBM, CL, KMB, HSY, MDLZ, CLX, BKNG, PLD, AMT, EQIX, PSA, DLR, BBY, SNPS, CDNS, NXPI, ADI
+
+# ========================================
+# FOCUSED: Top 50 Highest Quality Halal Stocks
+# ========================================
+# Best balance of speed (12-15 seconds) and comprehensive coverage
+
+AAPL, MSFT, NVDA, GOOGL, TSLA, AVGO, LLY, JNJ, UNH, PFE, ABBV, TMO, ABT, DHR, MRK, HD, COST, TGT, NKE, PG, KO, PEP, WMT, ORCL, ADBE, CRM, CSCO, AMD, QCOM, TXN, AMAT, BA, CAT, DE, UPS, HON, XOM, CVX, COP, LIN, APD, V, MA, PYPL, DDOG, CRWD, PANW, NOW, TSM, IBM
+
+
+# ========================================
+# SECTOR-SPECIFIC LISTS
+# ========================================
+
+# TECHNOLOGY ONLY (40 stocks)
+AAPL, MSFT, NVDA, GOOGL, GOOG, AVGO, ORCL, ADBE, CRM, CSCO, INTC, AMD, QCOM, TXN, AMAT, LRCX, KLAC, SNPS, CDNS, MRVL, NXPI, ADI, MPWR, TSM, IBM, HPQ, SHOP, DDOG, CRWD, ZS, PANW, NET, MDB, SNOW, NOW, TEAM, ZM, DOCU, TWLO, ROKU
+
+# HEALTHCARE ONLY (30 stocks)
+LLY, JNJ, UNH, PFE, ABBV, TMO, ABT, DHR, MRK, BMY, AMGN, GILD, REGN, VRTX, ISRG, ELV, CI, BSX, IDXX, SYK, CVS, HUM, CNC, MOH, DGX, LH, ZTS, DXCM, ALGN, PODD
+
+# CONSUMER DISCRETIONARY (25 stocks)
+TSLA, HD, COST, TGT, NKE, SBUX, MCD, CMG, LULU, BKNG, ABNB, AMZN, EBAY, ETSY, W, CHWY, ULTA, RL, TPR, NVR, PHM, LEN, DHI, BBWI, GPS
+
+# CONSUMER STAPLES (20 stocks)
+PG, KO, PEP, WMT, CL, KMB, GIS, K, HSY, MDLZ, KHC, CLX, CHD, EL, CPB, CAG, SJM, HRL, MKC, LW
+
+# INDUSTRIALS (25 stocks)
+BA, CAT, DE, UPS, HON, GE, LMT, RTX, EMR, ETN, PCAR, ODFL, URI, MMM, ITW, ROK, PH, AME, FTV, DOV, IEX, XYL, CARR, TT, GNRC
+
+# ENERGY (15 stocks)
+XOM, CVX, COP, SLB, EOG, PSX, MPC, VLO, OXY, HAL, KMI, WMB, HES, DVN, MRO
+
+# MATERIALS (12 stocks)
+LIN, APD, SHW, FCX, NEM, DD, DOW, PPG, ECL, ALB, CE, VMC
+
+# SEMICONDUCTORS ONLY (20 stocks)
+NVDA, AVGO, INTC, AMD, QCOM, TXN, AMAT, LRCX, KLAC, MRVL, NXPI, ADI, MPWR, TSM, MU, WDC, STX, SWKS, QRVO, ON
+
+# FINTECH & PAYMENTS (10 stocks)
+V, MA, PYPL, SQ, FIS, FISV, ADYEY, GPN, AFRM, COIN
+
+
+# ========================================
+# QUICK COPY FORMATS
+# ========================================
+
+# Format 1: Top 20 (No Spaces)
+AAPL,MSFT,NVDA,GOOGL,TSLA,AVGO,LLY,JNJ,UNH,HD,COST,PFE,ABBV,TMO,ORCL,ADBE,CRM,NKE,CSCO,PG
+
+# Format 2: Top 30 (No Spaces)
+AAPL,MSFT,NVDA,GOOGL,TSLA,AVGO,LLY,JNJ,UNH,HD,COST,PFE,ABBV,TMO,ABT,DHR,MRK,ORCL,ADBE,CRM,CSCO,AMD,QCOM,NKE,PG,KO,BA,CAT,XOM,CVX
+
+# Format 3: Top 50 (No Spaces)
+AAPL,MSFT,NVDA,GOOGL,TSLA,AVGO,LLY,JNJ,UNH,PFE,ABBV,TMO,ABT,DHR,MRK,HD,COST,TGT,NKE,PG,KO,PEP,WMT,ORCL,ADBE,CRM,CSCO,AMD,QCOM,TXN,AMAT,BA,CAT,DE,UPS,HON,XOM,CVX,COP,LIN,APD,V,MA,PYPL,DDOG,CRWD,PANW,NOW,TSM,IBM
+
+
+# ========================================
+# USAGE INSTRUCTIONS
+# ========================================
+# 1. Copy any list above (the ticker line, not the heading)
+# 2. Open scanner UI: http://localhost:5173/
+# 3. Paste into the input field
+# 4. Click "Run Scan"
+# 5. Wait for results (timing shown above)
+# 6. View ranked tickers sorted by bullish score!
+
+# Note: Larger lists take longer but give more opportunities
+# Recommended: Start with Top 50 for best balance

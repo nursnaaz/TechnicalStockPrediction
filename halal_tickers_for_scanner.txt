@@ -1,0 +1,67 @@
+# Halal Stock Tickers - Ready to Copy & Paste into Scanner
+
+## OPTION 1: Top 20 Most Popular Halal Stocks (RECOMMENDED)
+AAPL, MSFT, NVDA, GOOGL, TSLA, AVGO, LLY, JNJ, UNH, HD, COST, PFE, ABBV, TMO, ORCL, ADBE, CRM, NKE, CSCO, PG
+
+## OPTION 2: Top 10 Technology Leaders (Halal)
+AAPL, MSFT, NVDA, GOOGL, AVGO, ORCL, ADBE, CRM, CSCO, AMD
+
+## OPTION 3: Top 10 Healthcare (Halal)
+LLY, JNJ, UNH, PFE, ABBV, TMO, ABT, DHR, MRK, BMY
+
+## OPTION 4: Diversified Portfolio (30 stocks across sectors)
+AAPL, MSFT, NVDA, GOOGL, TSLA, AVGO, LLY, JNJ, UNH, PFE, HD, COST, NKE, SBUX, MCD, PG, KO, ORCL, ADBE, CRM, AMD, QCOM, TMO, ABBV, CAT, BA, XOM, CVX, LIN, APD
+
+## OPTION 5: Large Cap Only (15 stocks)
+AAPL, MSFT, NVDA, GOOGL, TSLA, LLY, JNJ, UNH, HD, COST, PG, KO, PFE, ABBV, XOM
+
+## OPTION 6: S&P 500 Halal Leaders (25 stocks)
+AAPL, MSFT, NVDA, GOOGL, TSLA, AVGO, LLY, JNJ, UNH, PFE, ABBV, TMO, HD, COST, PG, KO, ORCL, ADBE, CRM, CSCO, AMD, QCOM, NKE, MCD, SBUX
+
+## OPTION 7: NASDAQ 100 Halal (20 stocks)
+AAPL, MSFT, NVDA, GOOGL, TSLA, AVGO, COST, PEP, ADBE, CSCO, AMD, QCOM, INTC, TXN, AMAT, LRCX, KLAC, MRVL, ORCL, CRM
+
+## OPTION 8: Small Diversified Set (10 stocks)
+AAPL, NVDA, TSLA, LLY, HD, COST, ORCL, PFE, CAT, XOM
+
+## OPTION 9: Semiconductor Focus (Halal)
+NVDA, AVGO, AMD, QCOM, INTC, TXN, AMAT, LRCX, KLAC, MRVL
+
+## OPTION 10: Consumer & Retail (Halal)
+HD, COST, TGT, NKE, SBUX, MCD, CMG, LULU, PG, KO
+
+## OPTION 11: Energy Sector (Halal)
+XOM, CVX, COP, SLB, EOG, PSX, MPC, VLO, OXY, HAL
+
+## OPTION 12: All Top Tech + Healthcare (20 stocks)
+AAPL, MSFT, NVDA, GOOGL, AVGO, ORCL, ADBE, CRM, CSCO, AMD, LLY, JNJ, UNH, PFE, ABBV, TMO, ABT, DHR, MRK, BMY
+
+## OPTION 13: Maximum Scan (50 stocks - may take ~5 seconds)
+AAPL, MSFT, NVDA, GOOGL, TSLA, AVGO, LLY, JNJ, UNH, PFE, ABBV, TMO, ABT, DHR, MRK, BMY, HD, COST, TGT, NKE, SBUX, MCD, PG, KO, PEP, WMT, ORCL, ADBE, CRM, CSCO, AMD, QCOM, INTC, TXN, AMAT, CAT, BA, HON, DE, UPS, XOM, CVX, COP, LIN, APD, SHW, V, MA, PYPL, ISRG
+
+## OPTION 14: Top 5 by Sector (25 stocks total)
+Tech: AAPL, MSFT, NVDA, GOOGL, AVGO
+Healthcare: LLY, JNJ, UNH, PFE, ABBV
+Consumer: HD, COST, NKE, PG, KO
+Industrial: CAT, BA, HON, DE, UPS
+Energy: XOM, CVX, COP, SLB, EOG
+
+## OPTION 15: Mid-Cap Growth (Halal - 15 stocks)
+SHOP, UBER, DASH, DDOG, CRWD, ZS, PANW, NET, MDB, SNOW, NOW, TEAM, ZM, DOCU, TWLO
+
+---
+
+## HOW TO USE:
+1. Open the scanner UI at: http://localhost:5173/
+2. Copy ONE of the options above (just the ticker line, not the heading)
+3. Paste into the input field
+4. Click "Run Scan"
+5. View results sorted by bullish score!
+
+## QUICK COPY OPTIONS (No Spaces - Alternative Format):
+
+20 stocks comma-separated:
+AAPL,MSFT,NVDA,GOOGL,TSLA,AVGO,LLY,JNJ,UNH,HD,COST,PFE,ABBV,TMO,ORCL,ADBE,CRM,NKE,CSCO,PG
+
+20 stocks space-separated:
+AAPL MSFT NVDA GOOGL TSLA AVGO LLY JNJ UNH HD COST PFE ABBV TMO ORCL ADBE CRM NKE CSCO PG
