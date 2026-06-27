@@ -178,6 +178,91 @@ class IndicatorCalculator:
         
         return float(relative_strength)
     
+    @staticmethod
+    def calculate_rsi(prices: np.ndarray, period: int = 14) -> Optional[float]:
+        """
+        Calculate Relative Strength Index.
+        
+        RSI = 100 - (100 / (1 + RS))
+        RS = average gain / average loss over period
+        
+        Args:
+            prices: Array of closing prices
+            period: RSI period (default 14)
+            
+        Returns:
+            RSI value (0-100) or None if insufficient data
+        """
+        if len(prices) < period + 1:
+            return None
+        
+        # Calculate daily changes
+        changes = np.diff(prices[-(period + 1):])
+        
+        gains = changes[changes > 0]
+        losses = -changes[changes < 0]
+        
+        avg_gain = np.mean(gains) if len(gains) > 0 else 0.0
+        avg_loss = np.mean(losses) if len(losses) > 0 else 0.0
+        
+        if avg_loss == 0:
+            return 100.0 if avg_gain > 0 else 50.0
+        
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+        
+        return float(rsi)
+    
+    @staticmethod
+    def calculate_roc(prices: np.ndarray, period: int = 10) -> Optional[float]:
+        """
+        Calculate Rate of Change (momentum).
+        
+        ROC = ((current_price - price_n_days_ago) / price_n_days_ago) * 100
+        
+        Args:
+            prices: Array of closing prices
+            period: Lookback period (default 10)
+            
+        Returns:
+            ROC percentage or None if insufficient data
+        """
+        if len(prices) < period + 1:
+            return None
+        
+        current = prices[-1]
+        past = prices[-(period + 1)]
+        
+        if past == 0:
+            return None
+        
+        return float(((current - past) / past) * 100)
+    
+    @staticmethod
+    def calculate_proximity_to_high(prices: np.ndarray, period: int = 20) -> Optional[float]:
+        """
+        Calculate how close current price is to its recent high.
+        
+        Returns percentage: 100% = at the high, 90% = 10% below high.
+        
+        Args:
+            prices: Array of closing prices
+            period: Lookback period for high (default 20)
+            
+        Returns:
+            Proximity percentage (0-100) or None if insufficient data
+        """
+        if len(prices) < period:
+            return None
+        
+        recent_high = float(np.max(prices[-period:]))
+        current = float(prices[-1])
+        
+        if recent_high == 0:
+            return None
+        
+        return float((current / recent_high) * 100)
+
     def calculate_all(
         self, 
         stock_data: StockData, 
@@ -226,5 +311,17 @@ class IndicatorCalculator:
         )
         if indicators.relative_strength is None:
             logger.warning(f"Insufficient data to calculate relative strength for {stock_data.ticker}")
+        
+        # Calculate EMA(9)
+        indicators.ema_9 = self.calculate_ema(stock_data.prices, 9)
+        
+        # Calculate RSI(14)
+        indicators.rsi_14 = self.calculate_rsi(stock_data.prices, 14)
+        
+        # Calculate Rate of Change (10-day momentum)
+        indicators.roc_10 = self.calculate_roc(stock_data.prices, 10)
+        
+        # Calculate proximity to 20-day high
+        indicators.proximity_to_20d_high = self.calculate_proximity_to_high(stock_data.prices, 20)
         
         return indicators

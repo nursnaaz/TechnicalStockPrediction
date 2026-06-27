@@ -65,7 +65,7 @@ class ScanOrchestrator:
         
         logger.info("ScanOrchestrator initialized")
     
-    async def execute_scan(self, request: ScanRequest) -> ScanResponse:
+    async def execute_scan(self, request: ScanRequest, as_of_date: str = None) -> ScanResponse:
         """
         Execute complete scan pipeline.
         
@@ -84,6 +84,9 @@ class ScanOrchestrator:
         
         Args:
             request: Scan request with ticker list
+            as_of_date: Optional cutoff date (YYYY-MM-DD). If provided, the scanner
+                        will only use data available up to this date. This prevents
+                        look-ahead bias during backtesting.
             
         Returns:
             Complete scan results with UUID scan_id
@@ -110,12 +113,12 @@ class ScanOrchestrator:
                 raise ScanError(f"Invalid ticker list: {e}")
             
             # Step 3: Analyze market regime (may default to NEUTRAL on failure)
-            market_regime = await self.regime_analyzer.analyze_regime()
+            market_regime = await self.regime_analyzer.analyze_regime(as_of_date=as_of_date)
             logger.info(f"Market regime: {market_regime.value}")
             
             # Step 4: Fetch market data (SPY) for relative strength calculations
             try:
-                market_data = await self.api_client.fetch_stock_data("SPY", days=250)
+                market_data = await self.api_client.fetch_stock_data("SPY", days=250, as_of_date=as_of_date)
                 logger.debug("Market data (SPY) fetched successfully")
             except ApiError as e:
                 logger.error(f"Failed to fetch market data: {e}")
@@ -126,8 +129,10 @@ class ScanOrchestrator:
             
             for ticker in universe:
                 try:
-                    # Fetch stock data
-                    stock_data = await self.api_client.fetch_stock_data(ticker, days=250)
+                    # Fetch stock data (point-in-time if as_of_date provided)
+                    stock_data = await self.api_client.fetch_stock_data(
+                        ticker, days=250, as_of_date=as_of_date
+                    )
                     
                     # Calculate indicators
                     indicators = self.indicator_calc.calculate_all(stock_data, market_data)

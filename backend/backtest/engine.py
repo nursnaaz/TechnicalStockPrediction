@@ -54,11 +54,14 @@ class BacktestEngine:
         backtest_id = str(uuid4())
         logger.info(f"Starting backtest {backtest_id} for date {as_of_date}")
         
-        # Step 1: Run scanner as of historical date
+        # Step 1: Run scanner as of historical date (POINT-IN-TIME: no look-ahead)
+        # The orchestrator will only fetch data up to as_of_date
         scan_request = ScanRequest(tickers=tickers)
         
         try:
-            scan_result = await self.orchestrator.execute_scan(scan_request)
+            scan_result = await self.orchestrator.execute_scan(
+                scan_request, as_of_date=as_of_date
+            )
         except Exception as e:
             logger.error(f"Scan failed for {as_of_date}: {e}")
             return {
@@ -240,6 +243,29 @@ class BacktestEngine:
         # Determine if trade was a winner
         is_winner = return_pct > 0
         
+        # TRUE POSITIVE LOGIC (Confusion Matrix):
+        # Prediction: score >= 70 means "predicted bullish"
+        # Reality: max_gain >= 5% means "stock actually went up"
+        #
+        # TP: score >= 70 AND max_gain >= 5% (correctly predicted bullish)
+        # FP: score >= 70 AND max_gain <  5% (wrongly predicted bullish)
+        # FN: score <  70 AND max_gain >= 5% (missed opportunity)
+        # TN: score <  70 AND max_gain <  5% (correctly stayed out)
+        bullish_threshold = 70
+        gain_threshold = 5.0
+        
+        predicted_bullish = score >= bullish_threshold
+        actually_went_up = max_gain_pct >= gain_threshold
+        
+        if predicted_bullish and actually_went_up:
+            classification = "true_positive"
+        elif predicted_bullish and not actually_went_up:
+            classification = "false_positive"
+        elif not predicted_bullish and actually_went_up:
+            classification = "false_negative"
+        else:
+            classification = "true_negative"
+        
         # Simple target calculation (since V1 doesn't have targets yet)
         # Assume T1 = +10%, T2 = +20% for baseline
         hit_target_1 = max_gain_pct >= 10.0
@@ -258,7 +284,11 @@ class BacktestEngine:
             "return_pct": round(return_pct, 2),
             "max_gain_pct": round(max_gain_pct, 2),
             "max_loss_pct": round(max_loss_pct, 2),
+            "max_price": round(max_high, 2),
             "is_winner": is_winner,
+            "predicted_bullish": predicted_bullish,
+            "actually_went_up": actually_went_up,
+            "classification": classification,
             "hit_target_1": hit_target_1,
             "hit_target_2": hit_target_2,
             "hit_stop": hit_stop,

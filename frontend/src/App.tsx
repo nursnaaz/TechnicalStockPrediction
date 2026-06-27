@@ -5,6 +5,7 @@ import Header from "@cloudscape-design/components/header";
 import Container from "@cloudscape-design/components/container";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import Input from "@cloudscape-design/components/input";
+import Tabs from "@cloudscape-design/components/tabs";
 import "@cloudscape-design/global-styles/index.css";
 
 import ScanButton from "./components/ScanButton";
@@ -12,6 +13,7 @@ import LoadingIndicator from "./components/LoadingIndicator";
 import MarketRegimeBadge from "./components/MarketRegimeBadge";
 import ResultsTable from "./components/ResultsTable";
 import ErrorMessage from "./components/ErrorMessage";
+import BacktestPanel from "./components/BacktestPanel";
 import { executeScan } from "./services/scanApi";
 import type { ScanResponse } from "./types/scan";
 
@@ -73,31 +75,46 @@ function App() {
             </Header>
           }
         >
-          <SpaceBetween size="l">
-            <Container>
-              <SpaceBetween size="m">
-                <Input
-                  value={tickers}
-                  onChange={({ detail }) => setTickers(detail.value)}
-                  placeholder="Enter ticker symbols (e.g., AAPL, MSFT, GOOGL)"
-                  disabled={loading}
-                  onKeyDown={handleKeyPress}
-                />
-                <ScanButton onClick={handleScan} loading={loading} />
-              </SpaceBetween>
-            </Container>
+          <Tabs
+            tabs={[
+              {
+                label: "Live Scanner",
+                id: "scanner",
+                content: (
+                  <SpaceBetween size="l">
+                    <Container>
+                      <SpaceBetween size="m">
+                        <Input
+                          value={tickers}
+                          onChange={({ detail }) => setTickers(detail.value)}
+                          placeholder="Enter ticker symbols (e.g., AAPL, MSFT, GOOGL)"
+                          disabled={loading}
+                          onKeyDown={handleKeyPress}
+                        />
+                        <ScanButton onClick={handleScan} loading={loading} />
+                      </SpaceBetween>
+                    </Container>
 
-            {error && <ErrorMessage message={error} onDismiss={() => setError(null)} />}
+                    {error && <ErrorMessage message={error} onDismiss={() => setError(null)} />}
 
-            {loading && <LoadingIndicator message="Analyzing stocks..." />}
+                    {loading && <LoadingIndicator message="Analyzing stocks..." />}
 
-            {results && (
-              <SpaceBetween size="m">
-                <MarketRegimeBadge regime={results.market_regime} />
-                <ResultsTable tickers={results.ranked_tickers} />
-              </SpaceBetween>
-            )}
-          </SpaceBetween>
+                    {results && (
+                      <SpaceBetween size="m">
+                        <MarketRegimeBadge regime={results.market_regime} />
+                        <ResultsTable tickers={results.ranked_tickers} />
+                      </SpaceBetween>
+                    )}
+                  </SpaceBetween>
+                ),
+              },
+              {
+                label: "Backtest",
+                id: "backtest",
+                content: <BacktestPanel />,
+              },
+            ]}
+          />
         </ContentLayout>
       }
       navigationHide

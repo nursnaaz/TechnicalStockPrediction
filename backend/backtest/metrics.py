@@ -60,6 +60,17 @@ class BacktestMetrics:
         target_2_rate = (target_2_hits / total_trades) if total_trades > 0 else 0
         stop_rate = (stop_hits / total_trades) if total_trades > 0 else 0
         
+        # Confusion Matrix (score >= 70 = predicted bullish, max_gain >= 5% = actually went up)
+        tp = len([t for t in analyzed_trades if t.get("classification") == "true_positive"])
+        fp = len([t for t in analyzed_trades if t.get("classification") == "false_positive"])
+        fn = len([t for t in analyzed_trades if t.get("classification") == "false_negative"])
+        tn = len([t for t in analyzed_trades if t.get("classification") == "true_negative"])
+        
+        accuracy = ((tp + tn) / total_trades) if total_trades > 0 else 0
+        precision = (tp / (tp + fp)) if (tp + fp) > 0 else 0
+        recall = (tp / (tp + fn)) if (tp + fn) > 0 else 0
+        f1_score = (2 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0
+        
         # Return metrics
         returns = [t["return_pct"] for t in analyzed_trades]
         avg_return = statistics.mean(returns) if returns else 0
@@ -106,6 +117,16 @@ class BacktestMetrics:
             "target_2_hit_rate": round(target_2_rate, 3),
             "stop_hit_count": stop_hits,
             "stop_hit_rate": round(stop_rate, 3),
+            "confusion_matrix": {
+                "true_positive": tp,
+                "false_positive": fp,
+                "false_negative": fn,
+                "true_negative": tn
+            },
+            "accuracy": round(accuracy, 3),
+            "precision": round(precision, 3),
+            "recall": round(recall, 3),
+            "f1_score": round(f1_score, 3),
             "by_score_bucket": score_buckets
         }
     

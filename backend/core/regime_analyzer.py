@@ -29,7 +29,7 @@ class MarketRegimeAnalyzer:
         self.api_client = api_client
         logger.debug("MarketRegimeAnalyzer initialized")
     
-    async def analyze_regime(self) -> MarketRegime:
+    async def analyze_regime(self, as_of_date: str = None) -> MarketRegime:
         """
         Determine current market regime.
         
@@ -39,13 +39,19 @@ class MarketRegimeAnalyzer:
         - Bearish: SMA_50 < SMA_200 * 0.98 (more than 2% below)
         - Neutral: SMA_50 within 2% of SMA_200
         
+        Args:
+            as_of_date: Optional cutoff date (YYYY-MM-DD). If provided, only uses
+                        data available up to this date for regime classification.
+        
         Returns:
             MarketRegime enum (BULLISH, BEARISH, or NEUTRAL)
         """
         try:
             # Fetch SPY data (need at least 200 days for 200-day SMA)
             logger.info("Fetching SPY data for market regime analysis")
-            spy_data = await self.api_client.fetch_stock_data("SPY", days=250)
+            spy_data = await self.api_client.fetch_stock_data(
+                "SPY", days=250, as_of_date=as_of_date
+            )
             
             # Calculate SMAs
             sma_50 = self._calculate_sma(spy_data.prices, 50)

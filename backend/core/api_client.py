@@ -64,7 +64,7 @@ class RestApiClient:
         
         logger.info(f"RestApiClient initialized with max {max_concurrent} concurrent connections")
     
-    async def fetch_stock_data(self, ticker: str, days: int = 250) -> StockData:
+    async def fetch_stock_data(self, ticker: str, days: int = 250, as_of_date: str = None) -> StockData:
         """
         Fetch historical price and volume data for a ticker.
         
@@ -73,6 +73,9 @@ class RestApiClient:
         Args:
             ticker: Stock symbol (e.g., "AAPL")
             days: Number of historical days to fetch (default: 250)
+            as_of_date: Optional cutoff date (YYYY-MM-DD). If provided, fetches data
+                        ending on this date (not today). Used by backtesting to prevent
+                        look-ahead bias.
             
         Returns:
             StockData with prices, volumes, timestamps
@@ -81,13 +84,18 @@ class RestApiClient:
             ApiError: After max_retries failed attempts
         """
         # Check cache first
-        cache_key = (ticker, days)
+        cache_key = (ticker, days, as_of_date)
         if cache_key in self._cache:
-            logger.debug(f"Cache hit for {ticker} ({days} days)")
+            logger.debug(f"Cache hit for {ticker} ({days} days, as_of={as_of_date})")
             return self._cache[cache_key]
         
         # Calculate date range
-        to_date = datetime.now()
+        if as_of_date:
+            # Point-in-time mode: only see data up to as_of_date (NO look-ahead)
+            to_date = datetime.strptime(as_of_date, "%Y-%m-%d")
+        else:
+            to_date = datetime.now()
+        
         from_date = to_date - timedelta(days=days)
         
         # Format dates as YYYY-MM-DD

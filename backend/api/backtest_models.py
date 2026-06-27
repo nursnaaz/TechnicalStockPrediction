@@ -95,7 +95,11 @@ class TradeResult(BaseModel):
     return_pct: Optional[float] = Field(default=None, description="Total return percentage")
     max_gain_pct: Optional[float] = Field(default=None, description="Maximum gain during period")
     max_loss_pct: Optional[float] = Field(default=None, description="Maximum loss during period")
+    max_price: Optional[float] = Field(default=None, description="Maximum price reached in forward window")
     is_winner: Optional[bool] = Field(default=None, description="Whether trade ended in profit")
+    predicted_bullish: Optional[bool] = Field(default=None, description="True if score >= 70")
+    actually_went_up: Optional[bool] = Field(default=None, description="True if max gain >= 5%")
+    classification: Optional[str] = Field(default=None, description="Confusion matrix class: true_positive, false_positive, false_negative, true_negative")
     hit_target_1: Optional[bool] = Field(default=None, description="Hit +10% target")
     hit_target_2: Optional[bool] = Field(default=None, description="Hit +20% target")
     hit_stop: Optional[bool] = Field(default=None, description="Hit -7% stop loss")
@@ -128,6 +132,11 @@ class BacktestMetricsResponse(BaseModel):
     target_2_hit_rate: Optional[float] = Field(default=None, description="Rate of +20% target hits")
     stop_hit_count: Optional[int] = Field(default=None, description="Trades hitting -7% stop")
     stop_hit_rate: Optional[float] = Field(default=None, description="Rate of -7% stop hits")
+    confusion_matrix: Optional[Dict[str, int]] = Field(default=None, description="TP/FP/FN/TN counts (score>=70 vs max_gain>=5%)")
+    accuracy: Optional[float] = Field(default=None, description="(TP+TN)/Total - overall correctness")
+    precision: Optional[float] = Field(default=None, description="TP/(TP+FP) - when we say bullish, how often correct")
+    recall: Optional[float] = Field(default=None, description="TP/(TP+FN) - of all actual bullish stocks, how many we caught")
+    f1_score: Optional[float] = Field(default=None, description="Harmonic mean of precision and recall")
     by_score_bucket: Optional[Dict[str, ScoreBucketMetrics]] = Field(
         default=None, description="Metrics broken down by score bucket"
     )

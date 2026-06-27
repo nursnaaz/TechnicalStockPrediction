@@ -84,7 +84,7 @@ class TestMarketRegimeAnalyzer:
         
         # Assert
         assert regime == MarketRegime.BULLISH
-        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250)
+        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250, as_of_date=None)
     
     @pytest.mark.asyncio
     async def test_bearish_regime_classification(self, regime_analyzer, mock_api_client):
@@ -98,7 +98,7 @@ class TestMarketRegimeAnalyzer:
         
         # Assert
         assert regime == MarketRegime.BEARISH
-        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250)
+        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250, as_of_date=None)
     
     @pytest.mark.asyncio
     async def test_neutral_regime_upper_boundary(self, regime_analyzer, mock_api_client):
@@ -112,7 +112,7 @@ class TestMarketRegimeAnalyzer:
         
         # Assert
         assert regime == MarketRegime.NEUTRAL
-        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250)
+        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250, as_of_date=None)
     
     @pytest.mark.asyncio
     async def test_neutral_regime_lower_boundary(self, regime_analyzer, mock_api_client):
@@ -126,7 +126,7 @@ class TestMarketRegimeAnalyzer:
         
         # Assert
         assert regime == MarketRegime.NEUTRAL
-        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250)
+        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250, as_of_date=None)
     
     @pytest.mark.asyncio
     async def test_api_failure_defaults_to_neutral(self, regime_analyzer, mock_api_client):
@@ -139,7 +139,7 @@ class TestMarketRegimeAnalyzer:
         
         # Assert
         assert regime == MarketRegime.NEUTRAL
-        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250)
+        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250, as_of_date=None)
     
     @pytest.mark.asyncio
     async def test_unexpected_error_defaults_to_neutral(self, regime_analyzer, mock_api_client):
@@ -152,7 +152,7 @@ class TestMarketRegimeAnalyzer:
         
         # Assert
         assert regime == MarketRegime.NEUTRAL
-        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250)
+        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250, as_of_date=None)
     
     @pytest.mark.asyncio
     async def test_insufficient_data_for_sma_50(self, regime_analyzer, mock_api_client):
@@ -171,7 +171,7 @@ class TestMarketRegimeAnalyzer:
         
         # Assert
         assert regime == MarketRegime.NEUTRAL
-        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250)
+        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250, as_of_date=None)
     
     @pytest.mark.asyncio
     async def test_insufficient_data_for_sma_200(self, regime_analyzer, mock_api_client):
@@ -190,7 +190,7 @@ class TestMarketRegimeAnalyzer:
         
         # Assert
         assert regime == MarketRegime.NEUTRAL
-        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250)
+        mock_api_client.fetch_stock_data.assert_called_once_with("SPY", days=250, as_of_date=None)
     
     @pytest.mark.asyncio
     async def test_sma_calculation_accuracy(self, regime_analyzer, mock_api_client):

@@ -290,7 +290,7 @@ class TestExecuteScan:
         mock_regime_analyzer.analyze_regime.return_value = MarketRegime.BULLISH
         
         # Make INVALID ticker fail
-        def fetch_side_effect(ticker, days=250):
+        def fetch_side_effect(ticker, days=250, as_of_date=None):
             if ticker == "INVALID":
                 raise ApiError(f"Failed to fetch {ticker}")
             return sample_stock_data
@@ -331,7 +331,7 @@ class TestExecuteScan:
         mock_regime_analyzer.analyze_regime.return_value = MarketRegime.BULLISH
         
         # Make all ticker fetches fail after SPY succeeds
-        def fetch_side_effect(ticker, days=250):
+        def fetch_side_effect(ticker, days=250, as_of_date=None):
             if ticker == "SPY":
                 return StockData(
                     ticker="SPY",
