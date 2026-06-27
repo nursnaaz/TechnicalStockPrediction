@@ -141,12 +141,15 @@ class ScanOrchestrator:
                     current_price = float(stock_data.prices[-1])
                     current_volume = float(stock_data.volumes[-1])
                     
-                    # Calculate score and signals
-                    bullish_score, signals = self.scoring_engine.calculate_score(
-                        current_price,
-                        current_volume,
-                        indicators
-                    )
+                    # Calculate enhanced score (with Stage 2 + Pattern detection)
+                    bullish_score, signals, stage_result, pattern_result = \
+                        self.scoring_engine.calculate_enhanced_score(
+                            current_price,
+                            current_volume,
+                            indicators,
+                            stock_data.prices,
+                            stock_data.volumes,
+                        )
                     
                     # Build indicators dict for response
                     indicators_dict = {

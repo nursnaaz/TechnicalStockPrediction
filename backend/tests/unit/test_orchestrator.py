@@ -63,6 +63,7 @@ def mock_scoring_engine():
     """Create mock scoring engine."""
     engine = Mock(spec=ScoringEngine)
     engine.calculate_score = Mock()
+    engine.calculate_enhanced_score = Mock()
     return engine
 
 
@@ -163,7 +164,7 @@ class TestExecuteScan:
             volume_above_average=False,
             relative_strength_positive=True
         )
-        mock_scoring_engine.calculate_score.return_value = (85, signals)
+        mock_scoring_engine.calculate_enhanced_score.return_value = (85, signals, Mock(), Mock())
         
         # Mock ranking service to return input as-is
         mock_ranking_service.rank_tickers.side_effect = lambda x: x
@@ -195,7 +196,7 @@ class TestExecuteScan:
         mock_indicator_calc.calculate_all.assert_called_once()
         
         # Verify score was calculated
-        mock_scoring_engine.calculate_score.assert_called_once()
+        mock_scoring_engine.calculate_enhanced_score.assert_called_once()
         
         # Verify ranking was performed
         mock_ranking_service.rank_tickers.assert_called_once()
@@ -239,7 +240,7 @@ class TestExecuteScan:
             volume_above_average=True,
             relative_strength_positive=True
         )
-        mock_scoring_engine.calculate_score.return_value = (100, signals)
+        mock_scoring_engine.calculate_enhanced_score.return_value = (100, signals, Mock(), Mock())
         
         # Mock ranking service to return sorted by score
         mock_ranking_service.rank_tickers.side_effect = lambda x: sorted(
@@ -306,7 +307,7 @@ class TestExecuteScan:
             volume_above_average=False,
             relative_strength_positive=True
         )
-        mock_scoring_engine.calculate_score.return_value = (85, signals)
+        mock_scoring_engine.calculate_enhanced_score.return_value = (85, signals, Mock(), Mock())
         mock_ranking_service.rank_tickers.side_effect = lambda x: x
         
         # Execute scan
@@ -397,7 +398,7 @@ class TestExecuteScan:
             volume_above_average=False,
             relative_strength_positive=True
         )
-        mock_scoring_engine.calculate_score.return_value = (85, signals)
+        mock_scoring_engine.calculate_enhanced_score.return_value = (85, signals, Mock(), Mock())
         mock_ranking_service.rank_tickers.side_effect = lambda x: x
         
         # Execute two scans
@@ -439,7 +440,7 @@ class TestExecuteScan:
             volume_above_average=False,
             relative_strength_positive=False
         )
-        mock_scoring_engine.calculate_score.return_value = (0, signals)
+        mock_scoring_engine.calculate_enhanced_score.return_value = (0, signals, Mock(), Mock())
         mock_ranking_service.rank_tickers.side_effect = lambda x: x
         
         # Execute scan
@@ -480,7 +481,7 @@ class TestExecuteScan:
             volume_above_average=False,
             relative_strength_positive=True
         )
-        mock_scoring_engine.calculate_score.return_value = (85, signals)
+        mock_scoring_engine.calculate_enhanced_score.return_value = (85, signals, Mock(), Mock())
         mock_ranking_service.rank_tickers.side_effect = lambda x: x
         
         # Execute scan

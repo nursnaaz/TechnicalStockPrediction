@@ -15,12 +15,19 @@ Optimized via backtesting on 495 trades across 5 dates:
 - Goal: Minimize False Negatives while keeping Precision >= 70%
 """
 
-from core.models import TechnicalIndicators
+from core.models import TechnicalIndicators, StockData
+from core.stage_classifier import StageClassifier, StageResult
+from core.pattern_detector import PatternDetector, PatternResult
 from api.models import IndicatorSignals
+import numpy as np
 
 
 class ScoringEngine:
     """Assigns bullish scores using gradient-based technical indicators."""
+
+    def __init__(self):
+        self.stage_classifier = StageClassifier()
+        self.pattern_detector = PatternDetector()
 
     def calculate_score(
         self,
@@ -32,10 +39,11 @@ class ScoringEngine:
         Calculate bullish score with gradient scoring.
 
         Scoring Components (max 100 points):
-        1. Trend Position (SMA50 + EMA20): 0-25 points (gradient)
-        2. Momentum (MACD + ROC): 0-25 points (gradient)
-        3. Strength (RSI + Relative Strength): 0-25 points (gradient)
-        4. Confirmation (Volume + Breakout Proximity): 0-25 points (gradient)
+        1. Trend Position (SMA50 + EMA20): 0-20 points (gradient)
+        2. Momentum (MACD + ROC): 0-20 points (gradient)
+        3. Strength (RSI + Relative Strength): 0-20 points (gradient)
+        4. Confirmation (Volume + Breakout Proximity): 0-20 points (gradient)
+        5. Stage & Pattern Bonus: 0-20 points
 
         Args:
             current_price: Latest closing price
@@ -47,55 +55,53 @@ class ScoringEngine:
         """
         total_score = 0.0
 
-        # === COMPONENT 1: TREND POSITION (0-25 pts) ===
+        # === COMPONENT 1: TREND POSITION (0-20 pts) ===
         # How well positioned is the stock relative to moving averages?
         trend_score = 0.0
 
-        # SMA(50) proximity: 0-13 points (gradient)
+        # SMA(50) proximity: 0-10 points (gradient)
         price_above_sma50 = False
         if indicators.sma_50 is not None and indicators.sma_50 > 0:
             distance_pct = ((current_price - indicators.sma_50) / indicators.sma_50) * 100
             if distance_pct > 5:
-                trend_score += 13      # Well above — strong uptrend
+                trend_score += 10      # Well above — strong uptrend
                 price_above_sma50 = True
             elif distance_pct > 2:
-                trend_score += 11      # Clearly above
+                trend_score += 8       # Clearly above
                 price_above_sma50 = True
             elif distance_pct > 0:
-                trend_score += 9       # Slightly above
+                trend_score += 6       # Slightly above
                 price_above_sma50 = True
             elif distance_pct > -2:
-                trend_score += 6       # Near (within 2%) — about to cross
+                trend_score += 4       # Near (within 2%) — about to cross
             elif distance_pct > -5:
-                trend_score += 3       # Approaching from below
-            # else: 0 (far below)
+                trend_score += 2       # Approaching from below
 
-        # EMA(20) proximity: 0-12 points (gradient)
+        # EMA(20) proximity: 0-10 points (gradient)
         price_above_ema20 = False
         if indicators.ema_20 is not None and indicators.ema_20 > 0:
             distance_pct = ((current_price - indicators.ema_20) / indicators.ema_20) * 100
             if distance_pct > 3:
-                trend_score += 12      # Strong short-term trend
+                trend_score += 10      # Strong short-term trend
                 price_above_ema20 = True
             elif distance_pct > 1:
-                trend_score += 10      # Above
+                trend_score += 8       # Above
                 price_above_ema20 = True
             elif distance_pct > 0:
-                trend_score += 8       # Slightly above
+                trend_score += 6       # Slightly above
                 price_above_ema20 = True
             elif distance_pct > -1:
-                trend_score += 5       # Near — testing support
+                trend_score += 4       # Near — testing support
             elif distance_pct > -3:
                 trend_score += 2       # Approaching
-            # else: 0
 
-        total_score += min(trend_score, 25)
+        total_score += min(trend_score, 20)
 
-        # === COMPONENT 2: MOMENTUM (0-25 pts) ===
+        # === COMPONENT 2: MOMENTUM (0-20 pts) ===
         # Is momentum building or fading?
         momentum_score = 0.0
 
-        # MACD: 0-15 points (gradient)
+        # MACD: 0-12 points (gradient)
         macd_above_signal = False
         macd_histogram_positive = False
         if indicators.macd_line is not None and indicators.macd_signal is not None:
@@ -103,116 +109,110 @@ class ScoringEngine:
             if macd_diff > 0:
                 macd_above_signal = True
                 macd_histogram_positive = True
-                # Scale by magnitude relative to price
                 if indicators.sma_50 and indicators.sma_50 > 0:
                     macd_strength = abs(macd_diff) / indicators.sma_50 * 1000
                     if macd_strength > 5:
-                        momentum_score += 15   # Strong MACD
+                        momentum_score += 12
                     elif macd_strength > 2:
-                        momentum_score += 12   # Moderate MACD
+                        momentum_score += 9
                     else:
-                        momentum_score += 9    # Weak but positive
+                        momentum_score += 7
                 else:
-                    momentum_score += 10
+                    momentum_score += 8
             elif macd_diff > -0.5:
-                momentum_score += 4    # Nearly crossing (about to turn bullish)
+                momentum_score += 3
                 if indicators.macd_histogram is not None and indicators.macd_histogram > 0:
                     macd_histogram_positive = True
                     momentum_score += 2
         elif indicators.macd_histogram is not None and indicators.macd_histogram > 0:
             macd_histogram_positive = True
-            momentum_score += 5
+            momentum_score += 4
 
-        # Rate of Change (10-day): 0-10 points (gradient)
+        # Rate of Change (10-day): 0-8 points (gradient)
         if indicators.roc_10 is not None:
             if indicators.roc_10 > 5:
-                momentum_score += 10   # Strong upward momentum
+                momentum_score += 8
             elif indicators.roc_10 > 2:
-                momentum_score += 8    # Good momentum
+                momentum_score += 6
             elif indicators.roc_10 > 0:
-                momentum_score += 5    # Slight positive
+                momentum_score += 4
             elif indicators.roc_10 > -2:
-                momentum_score += 2    # Flat (not bearish)
-            # else: 0 (falling)
+                momentum_score += 2
 
-        total_score += min(momentum_score, 25)
+        total_score += min(momentum_score, 20)
 
-        # === COMPONENT 3: STRENGTH (0-25 pts) ===
+        # === COMPONENT 3: STRENGTH (0-20 pts) ===
         # Is the stock showing relative strength and healthy RSI?
         strength_score = 0.0
 
-        # RSI(14): 0-13 points (gradient — favors 40-70 "healthy" zone)
+        # RSI(14): 0-10 points (gradient — favors 40-70 "healthy" zone)
         if indicators.rsi_14 is not None:
             rsi = indicators.rsi_14
             if 50 <= rsi <= 70:
-                strength_score += 13   # Ideal bullish zone
+                strength_score += 10   # Ideal bullish zone
             elif 40 <= rsi < 50:
-                strength_score += 10   # Recovering — about to turn bullish
+                strength_score += 8    # Recovering — about to turn bullish
             elif 30 <= rsi < 40:
-                strength_score += 7    # Oversold bounce potential
+                strength_score += 5    # Oversold bounce potential
             elif 70 < rsi <= 80:
-                strength_score += 8    # Strong but overbought risk
+                strength_score += 6    # Strong but overbought risk
             elif rsi < 30:
-                strength_score += 4    # Deeply oversold — high risk but bounce possible
-            # else (RSI > 80): 0 — extremely overbought
+                strength_score += 3    # Deeply oversold — high risk but bounce possible
 
-        # Relative Strength vs market: 0-12 points (gradient)
+        # Relative Strength vs market: 0-10 points (gradient)
         relative_strength_positive = False
         if indicators.relative_strength is not None:
             rs = indicators.relative_strength
             if rs > 5:
-                strength_score += 12   # Significantly outperforming market
+                strength_score += 10   # Significantly outperforming market
                 relative_strength_positive = True
             elif rs > 2:
-                strength_score += 10   # Outperforming
+                strength_score += 8    # Outperforming
                 relative_strength_positive = True
             elif rs > 0:
-                strength_score += 7    # Slightly outperforming
+                strength_score += 6    # Slightly outperforming
                 relative_strength_positive = True
             elif rs > -2:
-                strength_score += 4    # In line with market
+                strength_score += 3    # In line with market
             elif rs > -5:
                 strength_score += 1    # Slightly underperforming
-            # else: 0 (significantly lagging)
 
-        total_score += min(strength_score, 25)
+        total_score += min(strength_score, 20)
 
-        # === COMPONENT 4: CONFIRMATION (0-25 pts) ===
+        # === COMPONENT 4: CONFIRMATION (0-20 pts) ===
         # Volume and breakout proximity
         confirmation_score = 0.0
 
-        # Volume: 0-12 points (gradient — relaxed)
+        # Volume: 0-10 points (gradient — relaxed)
         volume_above_average = False
         if indicators.avg_volume_20 is not None and indicators.avg_volume_20 > 0:
             vol_ratio = current_volume / indicators.avg_volume_20
             if vol_ratio > 1.5:
-                confirmation_score += 12   # High volume — strong confirmation
+                confirmation_score += 10   # High volume — strong confirmation
                 volume_above_average = True
             elif vol_ratio > 1.2:
-                confirmation_score += 10   # Above average
+                confirmation_score += 8    # Above average
                 volume_above_average = True
             elif vol_ratio > 0.8:
-                confirmation_score += 7    # Normal volume (not bearish)
+                confirmation_score += 5    # Normal volume (not bearish)
             elif vol_ratio > 0.5:
-                confirmation_score += 3    # Below average but not dead
-            # else: 0 (very low volume — no interest)
+                confirmation_score += 2    # Below average but not dead
 
-        # Breakout proximity (distance to 20-day high): 0-13 points
+        # Breakout proximity (distance to 20-day high): 0-10 points
         if indicators.proximity_to_20d_high is not None:
             prox = indicators.proximity_to_20d_high
             if prox >= 98:
-                confirmation_score += 13   # At or near high — breakout!
+                confirmation_score += 10   # At or near high — breakout!
             elif prox >= 95:
-                confirmation_score += 11   # Very close to high
+                confirmation_score += 8    # Very close to high
             elif prox >= 92:
-                confirmation_score += 8    # Within striking distance
+                confirmation_score += 6    # Within striking distance
             elif prox >= 88:
-                confirmation_score += 5    # Moderate pullback
+                confirmation_score += 4    # Moderate pullback
             elif prox >= 85:
                 confirmation_score += 2    # Deeper pullback
-            # else: 0 (far from high)
 
-        total_score += min(confirmation_score, 25)
+        total_score += min(confirmation_score, 20)
 
         # === FINAL SCORE ===
         final_score = int(min(round(total_score), 100))
@@ -228,3 +228,60 @@ class ScoringEngine:
         )
 
         return final_score, signals
+
+    def calculate_enhanced_score(
+        self,
+        current_price: float,
+        current_volume: float,
+        indicators: TechnicalIndicators,
+        prices: np.ndarray,
+        volumes: np.ndarray,
+    ) -> tuple[int, IndicatorSignals, StageResult, PatternResult]:
+        """
+        Calculate enhanced score with Stage 2 + Pattern Detection bonus.
+        
+        This method calls the base calculate_score then adds up to 20 bonus
+        points for Stage 2 classification and pattern detection.
+        
+        Args:
+            current_price: Latest closing price
+            current_volume: Latest daily volume
+            indicators: Calculated technical indicators
+            prices: Full price history (for stage/pattern analysis)
+            volumes: Full volume history (for pattern analysis)
+            
+        Returns:
+            Tuple of (score, signals, stage_result, pattern_result)
+        """
+        # Get base score (0-80 max from 4 components of 20 each)
+        base_score, signals = self.calculate_score(current_price, current_volume, indicators)
+        
+        # === COMPONENT 5: STAGE & PATTERN BONUS (0-20 pts) ===
+        bonus = 0.0
+        
+        # Stage 2 classification (0-10 pts)
+        stage_result = self.stage_classifier.classify(prices, current_price)
+        if stage_result.is_stage_2:
+            bonus += 10  # Full Stage 2 bonus
+        elif stage_result.checks_passed >= 4:
+            bonus += 7   # Almost Stage 2
+        elif stage_result.checks_passed >= 3:
+            bonus += 4   # Partial Stage 2
+        
+        # Pattern detection (0-10 pts)
+        avg_vol_20 = float(np.mean(volumes[-20:])) if len(volumes) >= 20 else current_volume
+        pattern_result = self.pattern_detector.detect_best_pattern(
+            prices, volumes, current_price, current_volume, avg_vol_20
+        )
+        
+        if pattern_result.confirmed:
+            bonus += 10  # Confirmed breakout pattern
+        elif pattern_result.detected and pattern_result.confidence >= 0.6:
+            bonus += 7   # High-confidence pattern detected
+        elif pattern_result.detected and pattern_result.confidence >= 0.4:
+            bonus += 4   # Moderate pattern
+        
+        # Calculate final enhanced score
+        enhanced_score = int(min(round(base_score + bonus), 100))
+        
+        return enhanced_score, signals, stage_result, pattern_result
