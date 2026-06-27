@@ -6,6 +6,7 @@ import Container from "@cloudscape-design/components/container";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import Input from "@cloudscape-design/components/input";
 import Tabs from "@cloudscape-design/components/tabs";
+import Button from "@cloudscape-design/components/button";
 import "@cloudscape-design/global-styles/index.css";
 
 import ScanButton from "./components/ScanButton";
@@ -84,6 +85,13 @@ function App() {
                   <SpaceBetween size="l">
                     <Container>
                       <SpaceBetween size="m">
+                        <SpaceBetween size="xs" direction="horizontal">
+                          <Button variant="link" onClick={() => setTickers("AAPL,MSFT,NVDA,GOOGL,TSLA,AVGO,LLY,JNJ,UNH,HD,COST,PFE,ABBV,TMO,ORCL,ADBE,CRM,NKE,CSCO,PG")}>Top 20 Halal</Button>
+                          <Button variant="link" onClick={() => setTickers("AAPL,MSFT,NVDA,GOOGL,TSLA,AVGO,LLY,JNJ,UNH,PFE,ABBV,TMO,ABT,DHR,MRK,HD,COST,TGT,NKE,PG,KO,PEP,WMT,ORCL,ADBE,CRM,CSCO,AMD,QCOM,TXN,AMAT,BA,CAT,DE,UPS,HON,XOM,CVX,COP,LIN,APD,V,MA,PYPL,DDOG,CRWD,PANW,NOW,TSM,IBM")}>Top 50 Halal</Button>
+                          <Button variant="link" onClick={() => setTickers("AAPL,MSFT,NVDA,GOOGL,AVGO,ORCL,ADBE,CRM,CSCO,AMD,QCOM,TXN,AMAT,LRCX,KLAC,MRVL,NXPI,ADI,TSM,IBM,DDOG,CRWD,PANW,NET,NOW")}>Tech</Button>
+                          <Button variant="link" onClick={() => setTickers("LLY,JNJ,UNH,PFE,ABBV,TMO,ABT,DHR,MRK,BMY,AMGN,GILD,REGN,VRTX,ISRG")}>Healthcare</Button>
+                          <Button variant="link" onClick={() => setTickers("XOM,CVX,COP,SLB,EOG,PSX,MPC,VLO,OXY,HAL")}>Energy</Button>
+                        </SpaceBetween>
                         <Input
                           value={tickers}
                           onChange={({ detail }) => setTickers(detail.value)}
