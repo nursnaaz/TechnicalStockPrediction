@@ -1,8 +1,8 @@
 {
   "enabled": true,
   "name": "Update Steering After Code Changes",
-  "description": "Prompts to review and update steering files after write operations that may indicate significant code additions (approximately 100 lines)",
-  "version": "1",
+  "description": "Prompts to review and update steering files after write operations that may indicate significant code additions (approximately 1000 lines)",
+  "version": "2",
   "when": {
     "type": "postToolUse",
     "toolTypes": [
@@ -11,6 +11,6 @@
   },
   "then": {
     "type": "askAgent",
-    "prompt": "Review the recent code changes. If approximately 100 or more lines of code have been written cumulatively, analyze the changes and suggest updates to the steering files in .kiro/steering/ (tech.md, structure.md, or product.md) to reflect new patterns, dependencies, or architectural decisions. If fewer than 100 lines have been added, acknowledge and continue without updating steering files."
+    "prompt": "Review the recent code changes. If approximately 1000 or more lines of code have been written cumulatively, analyze the changes and suggest updates to the steering files in .kiro/steering/ (tech.md, structure.md, or product.md) to reflect new patterns, dependencies, or architectural decisions. If fewer than 1000 lines have been added, acknowledge and continue without updating steering files."
   }
 }

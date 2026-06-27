@@ -24,6 +24,7 @@ Technical analysis tool that identifies bullish stocks using indicators and scor
 - **halal_stocks_usa.md** - Reference list of 200+ Shariah-compliant US stocks with tickers
 - **halal_tickers_for_scanner.txt** - Ready-to-paste ticker lists (15 preset options)
 - **ALL_HALAL_STOCKS.txt** - Comprehensive comma-separated lists (150+ stocks, sector-specific)
+- **V2_DEVELOPMENT_PLAN.md** - Roadmap for V2: Phoenix rules, backtesting framework, 4-week plan
 
 ## Status
 
