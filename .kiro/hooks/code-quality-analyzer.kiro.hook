@@ -1,0 +1,38 @@
+{
+  "enabled": true,
+  "name": "Code Quality Analyzer",
+  "description": "Automatically analyzes all code files (Python, JavaScript, Java, etc.) for syntax errors, bugs, code quality issues, and best practices violations after 10 code files are created",
+  "version": "1",
+  "when": {
+    "type": "fileCreated",
+    "patterns": [
+      "*.py",
+      "*.js",
+      "*.jsx",
+      "*.ts",
+      "*.tsx",
+      "*.java",
+      "*.c",
+      "*.cpp",
+      "*.cc",
+      "*.h",
+      "*.hpp",
+      "*.cs",
+      "*.go",
+      "*.rs",
+      "*.rb",
+      "*.php",
+      "*.swift",
+      "*.kt",
+      "*.scala",
+      "*.r",
+      "*.m",
+      "*.sh",
+      "*.sql"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A new code file was created. Check if there are now 10 or more code files in the project (across all languages: Python, JavaScript, TypeScript, Java, C/C++, Go, Rust, Ruby, PHP, Swift, Kotlin, Scala, R, Objective-C, Shell, SQL, etc.). If yes, perform a comprehensive code analysis:\n\n1. **Syntax Check**: Review all code files for syntax errors and invalid code (language-specific)\n2. **Bug Detection**: Identify potential bugs, logic errors, and runtime issues\n3. **Code Quality**: Check for code smells, anti-patterns, and violations of best practices for each language\n4. **Type Issues**: Look for type inconsistencies where applicable (TypeScript, Java, C++, etc.)\n5. **Security**: Identify potential security vulnerabilities (SQL injection, XSS, buffer overflows, etc.)\n6. **Performance**: Note any obvious performance concerns\n7. **Language-Specific Issues**: Check for language-specific problems and best practices\n\nProvide a detailed report with:\n- File-by-file analysis of issues found\n- Severity levels (Critical, High, Medium, Low)\n- Specific line numbers where issues occur\n- Recommendations for fixes\n- Language-specific guidance\n\nIf fewer than 10 code files exist, acknowledge the file creation and wait for more files."
+  }
+}
