@@ -474,3 +474,74 @@ class TestEdgeCases:
         
         # Relative strength should be 0 (both have 0% return)
         assert indicators.relative_strength == pytest.approx(0.0, rel=1e-6)
+
+
+class TestV3LongTermIndicators:
+    """Tests for V3 indicators: SMA(150), SMA(200), SMA(200) slope, 52-week high/low."""
+
+    def test_sma_slope_rising(self):
+        """Rising prices → SMA(200) slope > 0."""
+        prices = np.arange(1.0, 1.0 + 260.0)  # strictly increasing, 260 bars
+        slope = IndicatorCalculator.sma_slope(prices, period=200, lookback=20)
+        assert slope is not None
+        assert slope > 0
+
+    def test_sma_slope_falling(self):
+        """Falling prices → SMA(200) slope < 0."""
+        prices = np.arange(260.0, 0.0, -1.0)  # strictly decreasing, 260 bars
+        slope = IndicatorCalculator.sma_slope(prices, period=200, lookback=20)
+        assert slope is not None
+        assert slope < 0
+
+    def test_sma_slope_flat(self):
+        """Constant prices → SMA(200) slope == 0."""
+        prices = np.full(260, 100.0)
+        slope = IndicatorCalculator.sma_slope(prices, period=200, lookback=20)
+        assert slope == pytest.approx(0.0, abs=1e-9)
+
+    def test_sma_slope_boundary_219_vs_220(self):
+        """Slope needs period+lookback (220) bars: 219 → None, 220 → value."""
+        assert IndicatorCalculator.sma_slope(np.arange(219.0), 200, 20) is None
+        assert IndicatorCalculator.sma_slope(np.arange(220.0), 200, 20) is not None
+
+    def test_sma_200_boundary_199_vs_200(self):
+        """SMA(200) needs 200 bars: 199 → None, 200 → value."""
+        assert IndicatorCalculator.calculate_sma(np.arange(199.0), 200) is None
+        assert IndicatorCalculator.calculate_sma(np.arange(200.0), 200) is not None
+
+    def _make_stock(self, prices):
+        n = len(prices)
+        return StockData(
+            ticker="TEST",
+            prices=np.array(prices, dtype=float),
+            volumes=np.full(n, 1_000_000.0),
+            timestamps=np.arange(n),
+        )
+
+    def test_calculate_all_populates_v3_fields(self):
+        """calculate_all fills sma_150/200/slope and 52-week high/low with ≥252 bars."""
+        prices = np.linspace(50.0, 150.0, 260)  # rising, 260 bars
+        stock = self._make_stock(prices)
+        market = self._make_stock(prices)
+        ind = IndicatorCalculator().calculate_all(stock, market)
+        assert ind.sma_150 == pytest.approx(float(np.mean(prices[-150:])), rel=1e-9)
+        assert ind.sma_200 == pytest.approx(float(np.mean(prices[-200:])), rel=1e-9)
+        assert ind.sma_200_slope is not None and ind.sma_200_slope > 0
+        assert ind.week52_high == pytest.approx(float(np.max(prices[-252:])), rel=1e-9)
+        assert ind.week52_low == pytest.approx(float(np.min(prices[-252:])), rel=1e-9)
+
+    def test_week52_boundary_251_vs_252(self):
+        """52-week high/low require 252 bars: 251 → None, 252 → value."""
+        market = self._make_stock(np.arange(252.0))
+        ind_251 = IndicatorCalculator().calculate_all(self._make_stock(np.arange(251.0)), market)
+        assert ind_251.week52_high is None and ind_251.week52_low is None
+        ind_252 = IndicatorCalculator().calculate_all(self._make_stock(np.arange(252.0)), market)
+        assert ind_252.week52_high is not None and ind_252.week52_low is not None
+
+    def test_insufficient_history_leaves_v3_fields_none(self):
+        """Short history → sma_200/slope/52wk are None (graceful, ticker later gated out)."""
+        market = self._make_stock(np.arange(180.0))
+        ind = IndicatorCalculator().calculate_all(self._make_stock(np.arange(180.0)), market)
+        assert ind.sma_200 is None
+        assert ind.sma_200_slope is None
+        assert ind.week52_high is None

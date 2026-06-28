@@ -29,9 +29,33 @@ class IndicatorCalculator:
         """
         if len(prices) < period:
             return None
-        
+
         return float(np.mean(prices[-period:]))
-    
+
+    @staticmethod
+    def sma_slope(prices: np.ndarray, period: int = 200, lookback: int = 20) -> Optional[float]:
+        """
+        Slope of the SMA(period) series over the last `lookback` bars (V3, R10/H2).
+
+        Returns SMA(period)[-1] - SMA(period)[-1-lookback]. A positive value means
+        the moving average is rising. Requires at least `period + lookback` bars,
+        otherwise None.
+
+        Args:
+            prices: Array of closing prices
+            period: SMA period (default 200)
+            lookback: Bars back to measure the slope over (default 20)
+
+        Returns:
+            Slope (current SMA minus SMA `lookback` bars ago) or None if insufficient data
+        """
+        if len(prices) < period + lookback:
+            return None
+
+        sma_now = float(np.mean(prices[-period:]))
+        sma_then = float(np.mean(prices[-period - lookback:-lookback]))
+        return sma_now - sma_then
+
     @staticmethod
     def calculate_ema(prices: np.ndarray, period: int) -> Optional[float]:
         """
@@ -284,7 +308,28 @@ class IndicatorCalculator:
         indicators.sma_50 = self.calculate_sma(stock_data.prices, 50)
         if indicators.sma_50 is None:
             logger.warning(f"Insufficient data to calculate SMA(50) for {stock_data.ticker}")
-        
+
+        # === V3: long-term trend indicators for Minervini hard filters ===
+        # SMA(150) [H3], SMA(200) [H1/H4], SMA(200) slope over 20 bars [H2]
+        indicators.sma_150 = self.calculate_sma(stock_data.prices, 150)
+        indicators.sma_200 = self.calculate_sma(stock_data.prices, 200)
+        indicators.sma_200_slope = self.sma_slope(stock_data.prices, period=200, lookback=20)
+        if indicators.sma_200 is None or indicators.sma_200_slope is None:
+            logger.warning(
+                f"Insufficient history for SMA(200)/slope for {stock_data.ticker} "
+                f"({len(stock_data.prices)} bars); V3 hard filters will exclude it"
+            )
+
+        # 52-week high/low (last 252 trading bars) [H5/H6]
+        if len(stock_data.prices) >= 252:
+            indicators.week52_high = float(np.max(stock_data.prices[-252:]))
+            indicators.week52_low = float(np.min(stock_data.prices[-252:]))
+        else:
+            logger.warning(
+                f"Insufficient history for 52-week high/low for {stock_data.ticker} "
+                f"({len(stock_data.prices)} bars, need 252)"
+            )
+
         # Calculate EMA(20)
         indicators.ema_20 = self.calculate_ema(stock_data.prices, 20)
         if indicators.ema_20 is None:

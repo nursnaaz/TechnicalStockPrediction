@@ -25,6 +25,17 @@ class Config:
     MAX_CONCURRENT_REQUESTS: int = 5
     MAX_RETRIES: int = 3
     RETRY_BACKOFF_FACTOR: float = 2.0  # Exponential backoff: 1s, 2s, 4s
+
+    # History window (V3): fetch_stock_data `days` is CALENDAR days. ~365 calendar days
+    # guarantees >= 252 trading bars so SMA(200), the 20-bar SMA200 slope, and 52-week
+    # high/low are all computable for the Minervini hard filters.
+    HISTORY_FETCH_DAYS: int = 365
+    MIN_TRADING_BARS: int = 252
+
+    # V3 regime-based BUY thresholds (R1/R7)
+    BULLISH_SCORE_THRESHOLD: int = 65
+    NEUTRAL_SCORE_THRESHOLD: int = 75
+    REGIME_PERSISTENCE_DAYS: int = 5  # consecutive closes above/below SMA200
     
     # Database Configuration
     DB_PATH: str = os.getenv("DB_PATH", "scanner.db")

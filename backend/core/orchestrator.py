@@ -24,6 +24,7 @@ from core.regime_analyzer import MarketRegimeAnalyzer
 from core.indicator_calculator import IndicatorCalculator
 from core.scoring_engine import ScoringEngine
 from core.ranking_service import RankingService
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -112,13 +113,31 @@ class ScanOrchestrator:
                 logger.error(f"Universe building failed: {e}")
                 raise ScanError(f"Invalid ticker list: {e}")
             
-            # Step 3: Analyze market regime (may default to NEUTRAL on failure)
-            market_regime = await self.regime_analyzer.analyze_regime(as_of_date=as_of_date)
-            logger.info(f"Market regime: {market_regime.value}")
-            
+            # Step 3: Analyze market regime (V3 gate → RegimeResult)
+            regime = await self.regime_analyzer.analyze_regime(as_of_date=as_of_date)
+            market_regime = regime.regime
+            logger.info(f"Market regime: {market_regime.value} (threshold={regime.threshold})")
+
+            # V3 R1: BEARISH regime emits ZERO candidates — short-circuit before scoring.
+            if not regime.emit_signals:
+                logger.info(f"Scan {scan_id}: bearish regime — emitting zero candidates")
+                duration = time.time() - start_time
+                return ScanResponse(
+                    scan_id=scan_id,
+                    market_regime=market_regime,
+                    ranked_tickers=[],
+                    metadata=ScanMetadata(
+                        timestamp=datetime.utcnow(),
+                        ticker_count=0,
+                        duration_seconds=round(duration, 2),
+                    ),
+                )
+
             # Step 4: Fetch market data (SPY) for relative strength calculations
             try:
-                market_data = await self.api_client.fetch_stock_data("SPY", days=250, as_of_date=as_of_date)
+                market_data = await self.api_client.fetch_stock_data(
+                    "SPY", days=config.HISTORY_FETCH_DAYS, as_of_date=as_of_date
+                )
                 logger.debug("Market data (SPY) fetched successfully")
             except ApiError as e:
                 logger.error(f"Failed to fetch market data: {e}")
@@ -126,12 +145,13 @@ class ScanOrchestrator:
             
             # Step 5: Process each ticker
             scored_tickers: List[TickerScore] = []
-            
+            fetch_error_count = 0  # distinguish "all fetches errored" from "validly filtered out"
+
             for ticker in universe:
                 try:
                     # Fetch stock data (point-in-time if as_of_date provided)
                     stock_data = await self.api_client.fetch_stock_data(
-                        ticker, days=250, as_of_date=as_of_date
+                        ticker, days=config.HISTORY_FETCH_DAYS, as_of_date=as_of_date
                     )
                     
                     # Calculate indicators
@@ -175,16 +195,22 @@ class ScanOrchestrator:
                     logger.info(f"Processed {ticker}: score={bullish_score}")
                     
                 except ApiError as e:
+                    fetch_error_count += 1
                     logger.warning(f"Failed to process {ticker}: {e}. Skipping.")
                     continue
                 except Exception as e:
+                    fetch_error_count += 1
                     logger.error(f"Unexpected error processing {ticker}: {e}. Skipping.")
                     continue
-            
-            # Check if we got any results
-            if not scored_tickers:
-                logger.error("No tickers could be processed successfully")
+
+            # V3: an empty candidate list is only an ERROR when EVERY fetch failed.
+            # A valid scan where all tickers were filtered out / scored below threshold
+            # returns an empty ranked list (HTTP 200), not a 500.
+            if not scored_tickers and fetch_error_count == len(universe):
+                logger.error("All tickers failed to fetch/process")
                 raise ScanError("All tickers failed to process. Please check ticker symbols and try again.")
+            if not scored_tickers:
+                logger.info("No tickers qualified after filtering — returning empty candidate list")
             
             # Step 6: Rank tickers
             ranked_tickers = self.ranking_service.rank_tickers(scored_tickers)

@@ -12,7 +12,12 @@ import numpy as np
 from core.orchestrator import ScanOrchestrator, ScanError
 from core.api_client import RestApiClient, ApiError
 from core.universe_builder import UniverseBuilder
-from core.regime_analyzer import MarketRegimeAnalyzer
+from core.regime_analyzer import MarketRegimeAnalyzer, RegimeResult
+
+
+def _regime(regime, threshold=65, emit=True):
+    """Helper: wrap a MarketRegime in the V3 RegimeResult contract."""
+    return RegimeResult(regime=regime, threshold=threshold, emit_signals=emit)
 from core.indicator_calculator import IndicatorCalculator
 from core.scoring_engine import ScoringEngine
 from core.ranking_service import RankingService
@@ -152,7 +157,7 @@ class TestExecuteScan:
         """Test successful scan with single ticker."""
         # Setup mocks
         mock_universe_builder.build_universe.return_value = ["AAPL"]
-        mock_regime_analyzer.analyze_regime.return_value = MarketRegime.BULLISH
+        mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, 65)
         mock_api_client.fetch_stock_data.return_value = sample_stock_data
         mock_indicator_calc.calculate_all.return_value = sample_indicators
         
@@ -228,7 +233,7 @@ class TestExecuteScan:
         # Setup mocks
         tickers = ["AAPL", "MSFT", "GOOGL"]
         mock_universe_builder.build_universe.return_value = tickers
-        mock_regime_analyzer.analyze_regime.return_value = MarketRegime.NEUTRAL
+        mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.NEUTRAL, 75)
         mock_api_client.fetch_stock_data.return_value = sample_stock_data
         mock_indicator_calc.calculate_all.return_value = sample_indicators
         
@@ -288,7 +293,7 @@ class TestExecuteScan:
         # Setup mocks
         tickers = ["AAPL", "INVALID", "GOOGL"]
         mock_universe_builder.build_universe.return_value = tickers
-        mock_regime_analyzer.analyze_regime.return_value = MarketRegime.BULLISH
+        mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, 65)
         
         # Make INVALID ticker fail
         def fetch_side_effect(ticker, days=250, as_of_date=None):
@@ -329,7 +334,7 @@ class TestExecuteScan:
         """Test scan fails when all tickers fail to process."""
         # Setup mocks
         mock_universe_builder.build_universe.return_value = ["AAPL", "MSFT"]
-        mock_regime_analyzer.analyze_regime.return_value = MarketRegime.BULLISH
+        mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, 65)
         
         # Make all ticker fetches fail after SPY succeeds
         def fetch_side_effect(ticker, days=250, as_of_date=None):
@@ -360,7 +365,7 @@ class TestExecuteScan:
         """Test scan fails when SPY market data cannot be fetched."""
         # Setup mocks
         mock_universe_builder.build_universe.return_value = ["AAPL"]
-        mock_regime_analyzer.analyze_regime.return_value = MarketRegime.NEUTRAL
+        mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.NEUTRAL, 75)
         
         # Make SPY fetch fail
         mock_api_client.fetch_stock_data.side_effect = ApiError("Failed to fetch SPY")
@@ -386,7 +391,7 @@ class TestExecuteScan:
         """Test each scan generates a unique UUID."""
         # Setup mocks
         mock_universe_builder.build_universe.return_value = ["AAPL"]
-        mock_regime_analyzer.analyze_regime.return_value = MarketRegime.BULLISH
+        mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, 65)
         mock_api_client.fetch_stock_data.return_value = sample_stock_data
         mock_indicator_calc.calculate_all.return_value = sample_indicators
         
@@ -428,7 +433,7 @@ class TestExecuteScan:
         # Setup mocks
         tickers = ["AAPL", "MSFT"]
         mock_universe_builder.build_universe.return_value = tickers
-        mock_regime_analyzer.analyze_regime.return_value = MarketRegime.BEARISH
+        mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, 65)
         mock_api_client.fetch_stock_data.return_value = sample_stock_data
         mock_indicator_calc.calculate_all.return_value = sample_indicators
         
@@ -469,7 +474,7 @@ class TestExecuteScan:
         """Test API cache is cleared at the start of each scan."""
         # Setup mocks
         mock_universe_builder.build_universe.return_value = ["AAPL"]
-        mock_regime_analyzer.analyze_regime.return_value = MarketRegime.BULLISH
+        mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, 65)
         mock_api_client.fetch_stock_data.return_value = sample_stock_data
         mock_indicator_calc.calculate_all.return_value = sample_indicators
         
@@ -511,3 +516,34 @@ class TestErrorHandling:
         request = ScanRequest(tickers=["AAPL"])
         with pytest.raises(ScanError, match="unexpected error"):
             await orchestrator.execute_scan(request)
+
+
+class TestV3RegimeGate:
+    """V3: bearish regime short-circuits to zero candidates without scoring."""
+
+    @pytest.mark.asyncio
+    async def test_bearish_regime_emits_zero_candidates(
+        self,
+        orchestrator,
+        mock_api_client,
+        mock_universe_builder,
+        mock_regime_analyzer,
+        mock_indicator_calc,
+        mock_scoring_engine,
+        mock_ranking_service,
+        sample_stock_data,
+    ):
+        mock_universe_builder.build_universe.return_value = ["AAPL", "MSFT"]
+        mock_regime_analyzer.analyze_regime.return_value = _regime(
+            MarketRegime.BEARISH, threshold=75, emit=False
+        )
+        mock_api_client.fetch_stock_data.return_value = sample_stock_data
+
+        request = ScanRequest(tickers=["AAPL", "MSFT"])
+        response = await orchestrator.execute_scan(request)
+
+        assert response.market_regime == MarketRegime.BEARISH
+        assert response.ranked_tickers == []
+        assert response.metadata.ticker_count == 0
+        # No per-ticker scoring in a bearish market
+        mock_scoring_engine.calculate_enhanced_score.assert_not_called()
