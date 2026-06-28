@@ -12,7 +12,11 @@ Usage:
     python validate_v3.py v3         # out-of-sample 5 dates
 """
 import asyncio
+import os
 import sys
+
+# Run standalone (`python scripts/validate_v3.py` from backend/) by putting backend/ on the path.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backtest.engine import BacktestEngine
 from config import config

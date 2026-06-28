@@ -6,7 +6,6 @@ Persistence layer for storing and retrieving completed scan results using SQLite
 
 import json
 from datetime import datetime
-from typing import Optional
 
 import aiosqlite
 
@@ -68,7 +67,7 @@ class ScanStore:
             )
             await db.commit()
 
-    async def get(self, scan_id: str) -> Optional[ScanResponse]:
+    async def get(self, scan_id: str) -> ScanResponse | None:
         """
         Retrieve a scan result by ID.
 
@@ -78,15 +77,14 @@ class ScanStore:
         Returns:
             ScanResponse if found, None otherwise
         """
-        async with aiosqlite.connect(self.db_path) as db:
-            async with db.execute(
-                "SELECT result_json FROM scan_results WHERE scan_id = ?", (scan_id,)
-            ) as cursor:
-                row = await cursor.fetchone()
+        async with aiosqlite.connect(self.db_path) as db, db.execute(
+            "SELECT result_json FROM scan_results WHERE scan_id = ?", (scan_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
 
-                if row is None:
-                    return None
+            if row is None:
+                return None
 
-                # Deserialize JSON to ScanResponse
-                result_dict = json.loads(row[0])
-                return ScanResponse(**result_dict)
+            # Deserialize JSON to ScanResponse
+            result_dict = json.loads(row[0])
+            return ScanResponse(**result_dict)

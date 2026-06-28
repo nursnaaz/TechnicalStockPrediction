@@ -139,7 +139,8 @@ export default function BacktestPanel() {
     a.click(); URL.revokeObjectURL(url);
   };
 
-  const trades = result?.trades ?? [];
+  // Memoize so the array identity is stable across renders (keeps the useMemo hooks below valid).
+  const trades = useMemo(() => result?.trades ?? [], [result]);
 
   const sortedTrades = useMemo(() => {
     if (!sortingColumn?.sortingField) return trades;
@@ -163,18 +164,17 @@ export default function BacktestPanel() {
   // Score distribution for visualization
   const scoreDistribution = useMemo(() => {
     const buckets = [
-      { label: "0-29", min: 0, max: 29, count: 0, color: "#d13212" },
-      { label: "30-49", min: 30, max: 49, count: 0, color: "#ff9900" },
-      { label: "50-64", min: 50, max: 64, count: 0, color: "#f2c94c" },
-      { label: "65-79", min: 65, max: 79, count: 0, color: "#67c23a" },
-      { label: "80-100", min: 80, max: 100, count: 0, color: "#0972d3" },
+      { label: "0-29", min: 0, max: 29, color: "#d13212" },
+      { label: "30-49", min: 30, max: 49, color: "#ff9900" },
+      { label: "50-64", min: 50, max: 64, color: "#f2c94c" },
+      { label: "65-79", min: 65, max: 79, color: "#67c23a" },
+      { label: "80-100", min: 80, max: 100, color: "#0972d3" },
     ];
-    for (const t of trades) {
-      for (const b of buckets) {
-        if (t.score >= b.min && t.score <= b.max) { b.count++; break; }
-      }
-    }
-    return buckets;
+    // Compute counts immutably (no in-place mutation, so it memoizes cleanly).
+    return buckets.map((b) => ({
+      ...b,
+      count: trades.filter((t) => t.score >= b.min && t.score <= b.max).length,
+    }));
   }, [trades]);
 
   const columnDefinitions = useMemo(() => [

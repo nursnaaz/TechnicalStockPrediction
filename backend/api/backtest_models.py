@@ -5,7 +5,6 @@ Pydantic models for backtest request and response validation.
 """
 
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -72,29 +71,29 @@ class TradeResult(BaseModel):
 
     ticker: str = Field(description="Stock ticker symbol")
     entry_price: float = Field(description="Price at time of prediction")
-    final_price: Optional[float] = Field(default=None, description="Price at end of horizon")
+    final_price: float | None = Field(default=None, description="Price at end of horizon")
     score: int = Field(description="Bullish score at prediction time")
-    signals: Optional[dict] = Field(default=None, description="Technical signals at prediction")
-    days_tracked: Optional[int] = Field(default=None, description="Number of trading days tracked")
-    return_pct: Optional[float] = Field(default=None, description="Total return percentage")
-    max_gain_pct: Optional[float] = Field(default=None, description="Maximum gain during period")
-    max_loss_pct: Optional[float] = Field(default=None, description="Maximum loss during period")
-    max_price: Optional[float] = Field(
+    signals: dict | None = Field(default=None, description="Technical signals at prediction")
+    days_tracked: int | None = Field(default=None, description="Number of trading days tracked")
+    return_pct: float | None = Field(default=None, description="Total return percentage")
+    max_gain_pct: float | None = Field(default=None, description="Maximum gain during period")
+    max_loss_pct: float | None = Field(default=None, description="Maximum loss during period")
+    max_price: float | None = Field(
         default=None, description="Maximum price reached in forward window"
     )
-    is_winner: Optional[bool] = Field(default=None, description="Whether trade ended in profit")
-    predicted_bullish: Optional[bool] = Field(
+    is_winner: bool | None = Field(default=None, description="Whether trade ended in profit")
+    predicted_bullish: bool | None = Field(
         default=None,
         description="True if a BUY: regime tradeable (not bearish) AND score >= regime threshold (65/75)",
     )
-    actually_went_up: Optional[bool] = Field(default=None, description="True if max gain >= 5%")
-    classification: Optional[str] = Field(
+    actually_went_up: bool | None = Field(default=None, description="True if max gain >= 5%")
+    classification: str | None = Field(
         default=None,
         description="Confusion matrix class: true_positive, false_positive, false_negative, true_negative",
     )
-    hit_target_1: Optional[bool] = Field(default=None, description="Hit +10% target")
-    hit_target_2: Optional[bool] = Field(default=None, description="Hit +20% target")
-    hit_stop: Optional[bool] = Field(default=None, description="Hit -7% stop loss")
+    hit_target_1: bool | None = Field(default=None, description="Hit +10% target")
+    hit_target_2: bool | None = Field(default=None, description="Hit +20% target")
+    hit_stop: bool | None = Field(default=None, description="Hit -7% stop loss")
     status: str = Field(description="Trade analysis status")
 
 
@@ -110,41 +109,39 @@ class BacktestMetricsResponse(BaseModel):
     """Aggregate metrics from backtest."""
 
     total_trades: int = Field(description="Total number of trades analyzed")
-    win_count: Optional[int] = Field(default=None, description="Number of winning trades")
-    loss_count: Optional[int] = Field(default=None, description="Number of losing trades")
-    win_rate: Optional[float] = Field(default=None, description="Win rate (0-1)")
-    avg_return: Optional[float] = Field(default=None, description="Average return percentage")
-    avg_winner: Optional[float] = Field(default=None, description="Average winner return")
-    avg_loser: Optional[float] = Field(default=None, description="Average loser return")
-    reward_risk_ratio: Optional[float] = Field(default=None, description="Reward-to-risk ratio")
-    expectancy: Optional[float] = Field(default=None, description="Expected return per trade")
-    best_trade: Optional[float] = Field(default=None, description="Best single trade return")
-    worst_trade: Optional[float] = Field(default=None, description="Worst single trade return")
-    target_1_hit_count: Optional[int] = Field(default=None, description="Trades hitting +10%")
-    target_1_hit_rate: Optional[float] = Field(default=None, description="Rate of +10% target hits")
-    target_2_hit_count: Optional[int] = Field(default=None, description="Trades hitting +20%")
-    target_2_hit_rate: Optional[float] = Field(default=None, description="Rate of +20% target hits")
-    stop_hit_count: Optional[int] = Field(default=None, description="Trades hitting -7% stop")
-    stop_hit_rate: Optional[float] = Field(default=None, description="Rate of -7% stop hits")
-    confusion_matrix: Optional[dict[str, int]] = Field(
+    win_count: int | None = Field(default=None, description="Number of winning trades")
+    loss_count: int | None = Field(default=None, description="Number of losing trades")
+    win_rate: float | None = Field(default=None, description="Win rate (0-1)")
+    avg_return: float | None = Field(default=None, description="Average return percentage")
+    avg_winner: float | None = Field(default=None, description="Average winner return")
+    avg_loser: float | None = Field(default=None, description="Average loser return")
+    reward_risk_ratio: float | None = Field(default=None, description="Reward-to-risk ratio")
+    expectancy: float | None = Field(default=None, description="Expected return per trade")
+    best_trade: float | None = Field(default=None, description="Best single trade return")
+    worst_trade: float | None = Field(default=None, description="Worst single trade return")
+    target_1_hit_count: int | None = Field(default=None, description="Trades hitting +10%")
+    target_1_hit_rate: float | None = Field(default=None, description="Rate of +10% target hits")
+    target_2_hit_count: int | None = Field(default=None, description="Trades hitting +20%")
+    target_2_hit_rate: float | None = Field(default=None, description="Rate of +20% target hits")
+    stop_hit_count: int | None = Field(default=None, description="Trades hitting -7% stop")
+    stop_hit_rate: float | None = Field(default=None, description="Rate of -7% stop hits")
+    confusion_matrix: dict[str, int] | None = Field(
         default=None, description="TP/FP/FN/TN counts (regime-aware BUY vs max_gain>=5%)"
     )
-    accuracy: Optional[float] = Field(
-        default=None, description="(TP+TN)/Total - overall correctness"
-    )
-    precision: Optional[float] = Field(
+    accuracy: float | None = Field(default=None, description="(TP+TN)/Total - overall correctness")
+    precision: float | None = Field(
         default=None, description="TP/(TP+FP) - when we say bullish, how often correct"
     )
-    recall: Optional[float] = Field(
+    recall: float | None = Field(
         default=None, description="TP/(TP+FN) - of all actual bullish stocks, how many we caught"
     )
-    f1_score: Optional[float] = Field(
+    f1_score: float | None = Field(
         default=None, description="Harmonic mean of precision and recall"
     )
-    by_score_bucket: Optional[dict[str, ScoreBucketMetrics]] = Field(
+    by_score_bucket: dict[str, ScoreBucketMetrics] | None = Field(
         default=None, description="Metrics broken down by score bucket"
     )
-    error: Optional[str] = Field(default=None, description="Error message if metrics failed")
+    error: str | None = Field(default=None, description="Error message if metrics failed")
 
 
 class SingleBacktestResponse(BaseModel):
@@ -153,18 +150,14 @@ class SingleBacktestResponse(BaseModel):
     backtest_id: str = Field(description="Unique identifier for this backtest")
     status: str = Field(description="Backtest status (completed/error)")
     as_of_date: str = Field(description="Date the scan was run for")
-    horizon_days: Optional[int] = Field(default=None, description="Forward-looking horizon")
-    scan_id: Optional[str] = Field(default=None, description="Scanner scan_id reference")
-    market_regime: Optional[str] = Field(default=None, description="Market regime at scan time")
-    total_candidates: Optional[int] = Field(default=None, description="Tickers scanned")
-    trades_analyzed: Optional[int] = Field(default=None, description="Trades with forward data")
-    metrics: Optional[BacktestMetricsResponse] = Field(
-        default=None, description="Aggregate metrics"
-    )
-    trades: Optional[list[TradeResult]] = Field(
-        default=None, description="Individual trade results"
-    )
-    error: Optional[str] = Field(default=None, description="Error message if failed")
+    horizon_days: int | None = Field(default=None, description="Forward-looking horizon")
+    scan_id: str | None = Field(default=None, description="Scanner scan_id reference")
+    market_regime: str | None = Field(default=None, description="Market regime at scan time")
+    total_candidates: int | None = Field(default=None, description="Tickers scanned")
+    trades_analyzed: int | None = Field(default=None, description="Trades with forward data")
+    metrics: BacktestMetricsResponse | None = Field(default=None, description="Aggregate metrics")
+    trades: list[TradeResult] | None = Field(default=None, description="Individual trade results")
+    error: str | None = Field(default=None, description="Error message if failed")
 
     class Config:
         json_schema_extra = {

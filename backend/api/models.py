@@ -6,7 +6,6 @@ Pydantic models for API request and response validation.
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -63,12 +62,12 @@ class TickerScore(BaseModel):
     bullish_score: int = Field(ge=0, le=100, description="Bullish score (0-100)")
     signals: IndicatorSignals = Field(description="Individual indicator signals")
     current_price: float = Field(description="Current stock price")
-    indicators: dict[str, Optional[float]] = Field(description="Raw indicator values")
+    indicators: dict[str, float | None] = Field(description="Raw indicator values")
     # V3 diagnostic fields (populated when include_all is requested)
-    passed_hard_filters: Optional[bool] = Field(
+    passed_hard_filters: bool | None = Field(
         default=None, description="Whether the ticker passed the Minervini hard filters"
     )
-    is_candidate: Optional[bool] = Field(
+    is_candidate: bool | None = Field(
         default=None,
         description="Whether it is a BUY candidate (passed filters AND score >= threshold)",
     )
@@ -124,7 +123,7 @@ class ScanResponse(BaseModel):
     market_regime: MarketRegime = Field(description="Current market regime")
     ranked_tickers: list[TickerScore] = Field(description="Tickers ranked by bullish score")
     metadata: ScanMetadata = Field(description="Scan execution metadata")
-    score_threshold: Optional[int] = Field(
+    score_threshold: int | None = Field(
         default=None, description="BUY score threshold for this regime (65 bullish / 75 neutral)"
     )
 

@@ -69,7 +69,7 @@ class ScanOrchestrator:
     async def execute_scan(
         self,
         request: ScanRequest,
-        as_of_date: str = None,
+        as_of_date: str | None = None,
         apply_signal_gate: bool = True,
     ) -> ScanResponse:
         """

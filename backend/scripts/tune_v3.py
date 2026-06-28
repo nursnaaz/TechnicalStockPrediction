@@ -18,6 +18,10 @@ import sys
 from datetime import datetime, timedelta
 from statistics import mean
 
+# Run standalone (`python scripts/tune_v3.py` from backend/) by putting backend/ on the path.
+_BACKEND = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _BACKEND)
+
 from api.models import MarketRegime
 from config import config
 from core.api_client import RestApiClient
@@ -26,7 +30,9 @@ from core.regime_analyzer import MarketRegimeAnalyzer
 from core.scoring_engine import ScoringEngine
 
 HORIZON = 30
-HERE = os.path.dirname(__file__)
+_REPO_ROOT = os.path.dirname(_BACKEND)
+DATA_DIR = os.path.join(_REPO_ROOT, "data")
+DOCS_DIR = os.path.join(_REPO_ROOT, "docs")
 
 # 10 dates across different years / months / market conditions
 DATES = [
@@ -46,7 +52,7 @@ GAIN_THRESHOLDS = [3, 5, 7, 10]
 
 
 def load_universe():
-    path = os.path.join(HERE, "..", "ALL_HALAL_STOCKS.txt")
+    path = os.path.join(DATA_DIR, "ALL_HALAL_STOCKS.txt")
     seen, out = set(), []
     for line in open(path):
         line = line.strip()
@@ -213,13 +219,13 @@ def report(records):
             lines.append(f"| {d} | 0 | {tag} | — |")
 
     text = "\n".join(lines) + "\n"
-    out = os.path.join(HERE, "..", "V3_TUNING_REPORT.md")
+    out = os.path.join(DOCS_DIR, "V3_TUNING_REPORT.md")
     open(out, "w").write(text)
     print("\n" + text)
     print(f"Saved -> {out}")
 
 
-CSV_PATH = os.path.join(HERE, "..", "V3_tuning_data.csv")
+CSV_PATH = os.path.join(DOCS_DIR, "V3_tuning_data.csv")
 
 
 def save_csv(records):
@@ -278,7 +284,6 @@ def html_report(records):
     .note{background:#fff7e6;border-left:4px solid #f0a500;padding:12px 16px;border-radius:6px;margin:12px 0}
     details summary{cursor:pointer;font-weight:600;color:#0b5394}"""
 
-    buys65 = [r for r in records if r["tradeable"] and r["score"] >= 65]
     buys80 = [r for r in records if r["tradeable"] and r["score"] >= 80]
     port = lambda rows: (mean(r["ret"] for r in rows) if rows else 0.0)
 
@@ -389,7 +394,7 @@ def html_report(records):
     )
     h.append("</div></body></html>")
 
-    out = os.path.join(HERE, "..", "V3_TUNING_REPORT.html")
+    out = os.path.join(DOCS_DIR, "V3_TUNING_REPORT.html")
     open(out, "w").write("\n".join(h))
     print(f"Saved HTML report -> {out}")
 

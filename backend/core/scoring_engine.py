@@ -109,7 +109,7 @@ class ScoringEngine:
         current_price: float,
         current_volume: float,
         indicators: TechnicalIndicators,
-        rs_percentile: float = None,
+        rs_percentile: float | None = None,
     ) -> tuple[int, IndicatorSignals]:
         """
         Calculate bullish score with gradient scoring.
@@ -385,7 +385,7 @@ class ScoringEngine:
         indicators: TechnicalIndicators,
         prices: np.ndarray,
         volumes: np.ndarray,
-        rs_percentile: float = None,
+        rs_percentile: float | None = None,
     ) -> tuple[int, IndicatorSignals, StageResult, PatternResult]:
         """
         Calculate enhanced score with Stage 2 + Pattern Detection bonus.

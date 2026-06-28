@@ -45,11 +45,11 @@ test('backtest tab shows confusion matrix + precision and slider re-buckets', as
     await expect(page.getByTestId(cell)).toBeVisible();
   }
 
-  // Slider re-buckets: bump score threshold via keyboard, label updates 50 -> 55
+  // Slider re-buckets: default is the V3 optimal (80); ArrowRight bumps it to 85.
   const slider = page.locator('[data-testid="score-threshold-slider"] input[type="range"]');
   await slider.focus();
   await slider.press('ArrowRight');
-  await expect(page.getByText(/Score Threshold:\s*55/)).toBeVisible();
+  await expect(page.getByText(/Score Threshold:\s*85/)).toBeVisible();
 
   await page.screenshot({ path: 'test-results/screenshots/v3-backtest-metrics.png', fullPage: true });
 });

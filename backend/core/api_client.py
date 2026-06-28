@@ -8,7 +8,6 @@ Handles authentication, connection pooling, retry logic, and caching.
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
 
 import httpx
 import numpy as np
@@ -30,8 +29,8 @@ class RestApiClient:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
         max_concurrent: int = 5,
         max_retries: int = 3,
     ):
@@ -65,7 +64,7 @@ class RestApiClient:
         logger.info(f"RestApiClient initialized with max {max_concurrent} concurrent connections")
 
     async def fetch_stock_data(
-        self, ticker: str, days: int = 250, as_of_date: str = None
+        self, ticker: str, days: int = 250, as_of_date: str | None = None
     ) -> StockData:
         """
         Fetch historical price and volume data for a ticker.

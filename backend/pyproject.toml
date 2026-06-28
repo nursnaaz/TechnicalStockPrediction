@@ -22,10 +22,19 @@ ignore = [
     "E501",   # line length handled by the formatter
     "B008",   # FastAPI uses function calls (Depends/Field) in argument defaults
     "SIM105", # contextlib.suppress is not always clearer than try/except/pass
+    "RUF002", # ambiguous unicode (× / ≥) is intentional in our math docstrings
+    "RUF003", # ambiguous unicode in comments — same, intentional math notation
+    "B904",   # re-raising domain errors (ScanError/HTTPException) without `from` is intentional
+    "RUF012", # constant class-level tables (pattern/stage configs) don't need ClassVar noise
+    "SIM108", # explicit if/else is clearer than a long ternary for date parsing
+    "SIM114", # keep separate if branches where they document distinct cases
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["B011", "SIM", "F811"]   # tests favour explicitness over simplification
+# Tests favour explicitness over simplification, and use helpers/imports pragmatically.
+"tests/**" = ["B011", "SIM", "F811", "E402", "B017", "B905", "RUF001", "F841", "C416"]
+# Dev/analysis scripts: sys.path bootstrap, ad-hoc file opens, terse one-off helpers.
+"scripts/**" = ["E402", "SIM115", "C401", "E731", "RUF001"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["api", "core", "backtest", "utils", "config"]

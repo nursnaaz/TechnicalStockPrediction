@@ -40,7 +40,7 @@ test.describe('Loading States', () => {
       });
 
       console.log('✓ Loading indicator was visible during scan');
-    } catch (e) {
+    } catch {
       console.log('⚠ Loading state was too quick to capture, or backend responded immediately');
     }
 
@@ -96,7 +96,7 @@ test.describe('Loading States', () => {
       });
 
       console.log('✓ Button was disabled during scan');
-    } catch (e) {
+    } catch {
       // If backend is very fast, button might re-enable before we can check
       console.log('⚠ Button state changed too quickly to verify disabled state');
     }
@@ -124,7 +124,7 @@ test.describe('Loading States', () => {
 
     // Check for any loading UI elements
     // This could be a spinner, loading text, or button state
-    const loadingElements = page.locator('.awsui-spinner, [role="status"], button:has-text("Run Scan")[disabled]');
+    await page.locator('.awsui-spinner, [role="status"], button:has-text("Run Scan")[disabled]');
     
     // Wait a moment for loading state
     await page.waitForTimeout(500);

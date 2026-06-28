@@ -9,8 +9,12 @@ the indicator profiles of FPs vs TPs to find what discriminates them.
 Usage: python analyze_fp.py [date ...]   (defaults to the weak in-sample dates)
 """
 import asyncio
+import os
 import sys
 from statistics import mean, median
+
+# Run standalone (`python scripts/analyze_fp.py` from backend/) by putting backend/ on the path.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import config
 from core.api_client import RestApiClient

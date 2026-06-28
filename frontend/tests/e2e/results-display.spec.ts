@@ -239,7 +239,8 @@ test.describe('Results Display', () => {
     const errorMessage = page.locator('[role="alert"]');
     const emptyTable = page.locator('table tbody:has-text("No")');
     
-    const hasErrorOrEmpty = await errorMessage.isVisible() || await emptyTable.isVisible();
+    await errorMessage.isVisible();
+    await emptyTable.isVisible();
     
     // Either error or empty state is acceptable
     console.log('✓ Invalid ticker handling verified');

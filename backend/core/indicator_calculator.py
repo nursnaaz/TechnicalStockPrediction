@@ -5,7 +5,6 @@ Computes technical indicators from price and volume data.
 """
 
 import logging
-from typing import Optional
 
 import numpy as np
 
@@ -18,7 +17,7 @@ class IndicatorCalculator:
     """Computes technical indicators from price/volume data."""
 
     @staticmethod
-    def calculate_sma(prices: np.ndarray, period: int) -> Optional[float]:
+    def calculate_sma(prices: np.ndarray, period: int) -> float | None:
         """
         Calculate Simple Moving Average.
 
@@ -35,7 +34,7 @@ class IndicatorCalculator:
         return float(np.mean(prices[-period:]))
 
     @staticmethod
-    def sma_slope(prices: np.ndarray, period: int = 200, lookback: int = 20) -> Optional[float]:
+    def sma_slope(prices: np.ndarray, period: int = 200, lookback: int = 20) -> float | None:
         """
         Slope of the SMA(period) series over the last `lookback` bars (V3, R10/H2).
 
@@ -59,7 +58,7 @@ class IndicatorCalculator:
         return sma_now - sma_then
 
     @staticmethod
-    def calculate_ema(prices: np.ndarray, period: int) -> Optional[float]:
+    def calculate_ema(prices: np.ndarray, period: int) -> float | None:
         """
         Calculate Exponential Moving Average.
 
@@ -86,9 +85,7 @@ class IndicatorCalculator:
         return float(ema)
 
     @staticmethod
-    def calculate_macd(
-        prices: np.ndarray
-    ) -> tuple[Optional[float], Optional[float], Optional[float]]:
+    def calculate_macd(prices: np.ndarray) -> tuple[float | None, float | None, float | None]:
         """
         Calculate MACD indicator.
 
@@ -145,7 +142,7 @@ class IndicatorCalculator:
         return float(macd_line), float(signal_line), float(histogram)
 
     @staticmethod
-    def calculate_avg_volume(volumes: np.ndarray, period: int) -> Optional[float]:
+    def calculate_avg_volume(volumes: np.ndarray, period: int) -> float | None:
         """
         Calculate average volume over a period.
 
@@ -164,7 +161,7 @@ class IndicatorCalculator:
     @staticmethod
     def calculate_relative_strength(
         ticker_prices: np.ndarray, market_prices: np.ndarray, period: int
-    ) -> Optional[float]:
+    ) -> float | None:
         """
         Calculate relative strength vs market.
 
@@ -205,7 +202,7 @@ class IndicatorCalculator:
         return float(relative_strength)
 
     @staticmethod
-    def calculate_rsi(prices: np.ndarray, period: int = 14) -> Optional[float]:
+    def calculate_rsi(prices: np.ndarray, period: int = 14) -> float | None:
         """
         Calculate Relative Strength Index.
 
@@ -240,7 +237,7 @@ class IndicatorCalculator:
         return float(rsi)
 
     @staticmethod
-    def calculate_roc(prices: np.ndarray, period: int = 10) -> Optional[float]:
+    def calculate_roc(prices: np.ndarray, period: int = 10) -> float | None:
         """
         Calculate Rate of Change (momentum).
 
@@ -265,7 +262,7 @@ class IndicatorCalculator:
         return float(((current - past) / past) * 100)
 
     @staticmethod
-    def calculate_proximity_to_high(prices: np.ndarray, period: int = 20) -> Optional[float]:
+    def calculate_proximity_to_high(prices: np.ndarray, period: int = 20) -> float | None:
         """
         Calculate how close current price is to its recent high.
 

@@ -18,5 +18,10 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // The React Compiler is not enabled in this project; eslint-plugin-react-hooks v7's
+      // experimental compiler rule flags valid useMemo usage as un-preservable. Disable it.
+      'react-hooks/preserve-manual-memoization': 'off',
+    },
   },
 ])

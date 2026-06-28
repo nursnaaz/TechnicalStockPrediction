@@ -13,7 +13,6 @@ Gate logic (R1):
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 
@@ -46,7 +45,7 @@ class MarketRegimeAnalyzer:
         self.api_client = api_client
         logger.debug("MarketRegimeAnalyzer initialized")
 
-    async def analyze_regime(self, as_of_date: str = None) -> RegimeResult:
+    async def analyze_regime(self, as_of_date: str | None = None) -> RegimeResult:
         """
         Determine the current market regime via the SPY 200-day SMA gate.
 
@@ -128,14 +127,14 @@ class MarketRegimeAnalyzer:
         )
 
     @staticmethod
-    def _calculate_sma(prices: "np.ndarray", period: int) -> Optional[float]:
+    def _calculate_sma(prices: "np.ndarray", period: int) -> float | None:
         """Calculate Simple Moving Average, or None if insufficient data."""
         if len(prices) < period:
             return None
         return float(np.mean(prices[-period:]))
 
     @staticmethod
-    def _calculate_ema(prices: "np.ndarray", period: int) -> Optional[float]:
+    def _calculate_ema(prices: "np.ndarray", period: int) -> float | None:
         """Calculate Exponential Moving Average (context only), or None if insufficient."""
         if len(prices) < period:
             return None

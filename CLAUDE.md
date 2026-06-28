@@ -24,11 +24,15 @@ pytest tests/unit/test_scoring_engine.py -v   # single file
 pytest -m unit | -m property | -m integration # by marker
 pytest --cov=. --cov-report=term-missing
 
-# Live-data validation / tuning (need POLYGON_TOKEN; hit Polygon, can be slow):
-python validate_v3.py smoke|v1|march|v3    # precision/recall on fixed date sets
-python tune_v3.py                          # full halal universe x 10 dates -> reports + CSV
-python tune_v3.py --from-csv               # regenerate reports from V3_tuning_data.csv (no refetch)
-python analyze_fp.py [dates...]            # false-positive misclassification research
+# Lint + format (config in backend/pyproject.toml — ruff):
+ruff check .            # lint (clean)
+ruff format .           # auto-format
+
+# Live-data validation / tuning (run from backend/; need POLYGON_TOKEN; hit Polygon, can be slow):
+python scripts/validate_v3.py smoke|v1|march|v3  # precision/recall on fixed date sets
+python scripts/tune_v3.py                        # full halal universe x 10 dates -> docs/ reports + CSV
+python scripts/tune_v3.py --from-csv             # regenerate reports from docs/V3_tuning_data.csv (no refetch)
+python scripts/analyze_fp.py [dates...]          # false-positive misclassification research
 ```
 
 ### Frontend
@@ -130,11 +134,23 @@ for determinism — live regime/data is non-deterministic).
 
 ## Reference reports & data (repo root)
 
-- `V3_VALIDATION_RESULTS.md` — in/out-of-sample precision (in-sample ~81.5%, OOS ~56.7%, recall ~33–35%).
-- `V3_TUNING_REPORT.html` — presentable: precision heatmap (score×gain%), $1k/signal portfolio, per-date
-  per-stock breakdown. `V3_TUNING_REPORT.md` is the summary; `V3_tuning_data.csv` is the raw 714-obs data.
-- Halal universe: `ALL_HALAL_STOCKS.txt` (~212 unique tickers when fully parsed; `tune_v3.load_universe()`
-  dedupes it).
+- `docs/V3_VALIDATION_RESULTS.md` — in/out-of-sample precision (in-sample ~81.5%, OOS ~56.7%, recall ~33–35%).
+- `docs/V3_TUNING_REPORT.html` — presentable: precision heatmap (score×gain%), $1k/signal portfolio, per-date
+  per-stock breakdown. `docs/V3_TUNING_REPORT.md` is the summary; `docs/V3_tuning_data.csv` is the raw 714-obs data.
+- Halal universe: `data/ALL_HALAL_STOCKS.txt` (~212 unique tickers when fully parsed; `tune_v3.load_universe()`
+  dedupes it). Other docs (V2/V3 plans, MANIFEST) live under `docs/`.
+
+## Repository layout (post-restructure)
+
+```
+backend/   FastAPI app: api/ core/ backtest/ utils/, config.py, main.py
+           scripts/  — dev/analysis tools (validate_v3, tune_v3, analyze_fp), run from backend/
+           pyproject.toml — ruff (lint+format) + mypy config
+frontend/  React + Cloudscape (src/components, services, types; tests/e2e Playwright)
+data/      halal ticker lists (ALL_HALAL_STOCKS.txt, …)
+docs/      plans + generated reports (V3_TUNING_REPORT.html/md, V3_VALIDATION_RESULTS.md, MANIFEST.md)
+.claude/spec/  V3 requirement.md / design.md / task.md
+```
 
 **Honest engine reality (don't oversell):** FP and TP trades are statistically near-identical on all
 indicators; precision ceilings ~60% at score≥80. The system is net-positive (~+2%/30-day cycle at best

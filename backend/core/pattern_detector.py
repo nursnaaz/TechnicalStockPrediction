@@ -13,7 +13,6 @@ Priority on tie: VCP > Darvas > Flat Base > Tight Flag.
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 
@@ -33,8 +32,8 @@ class PatternResult:
     detected: bool
     confirmed: bool
     confidence: float  # 0.0 to 1.0
-    pivot: Optional[float]  # Breakout price level
-    base_height: Optional[float]  # For target calculation
+    pivot: float | None  # Breakout price level
+    base_height: float | None  # For target calculation
     details: dict
 
 
