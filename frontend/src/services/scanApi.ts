@@ -7,13 +7,13 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 /**
  * Execute a stock scan with the provided tickers
  */
-export async function executeScan(tickers: string[]): Promise<ScanResponse> {
+export async function executeScan(tickers: string[], includeAll = false): Promise<ScanResponse> {
   const response = await fetch(`${API_BASE_URL}/api/v1/scan`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ tickers } as ScanRequest),
+    body: JSON.stringify({ tickers, include_all: includeAll } as ScanRequest),
   });
 
   if (!response.ok) {

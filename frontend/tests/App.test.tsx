@@ -107,7 +107,7 @@ describe('App Component', () => {
       fireEvent.click(scanButton);
 
       await waitFor(() => {
-        expect(scanApi.executeScan).toHaveBeenCalledWith(['AAPL', 'MSFT', 'GOOGL']);
+        expect(scanApi.executeScan).toHaveBeenCalledWith(['AAPL', 'MSFT', 'GOOGL'], false);
       });
     });
 
@@ -134,7 +134,7 @@ describe('App Component', () => {
       fireEvent.click(scanButton);
 
       await waitFor(() => {
-        expect(scanApi.executeScan).toHaveBeenCalledWith(['AAPL', 'MSFT', 'GOOGL']);
+        expect(scanApi.executeScan).toHaveBeenCalledWith(['AAPL', 'MSFT', 'GOOGL'], false);
       });
     });
 
@@ -161,7 +161,7 @@ describe('App Component', () => {
       fireEvent.click(scanButton);
 
       await waitFor(() => {
-        expect(scanApi.executeScan).toHaveBeenCalledWith(['AAPL', 'MSFT']);
+        expect(scanApi.executeScan).toHaveBeenCalledWith(['AAPL', 'MSFT'], false);
       });
     });
 
@@ -185,7 +185,7 @@ describe('App Component', () => {
       await userEvent.type(input, 'AAPL{Enter}');
 
       await waitFor(() => {
-        expect(scanApi.executeScan).toHaveBeenCalledWith(['AAPL']);
+        expect(scanApi.executeScan).toHaveBeenCalledWith(['AAPL'], false);
       });
     });
   });

@@ -8,16 +8,25 @@ import SignalBadges from "./SignalBadges";
 interface ResultsTableProps {
   tickers: TickerScore[];
   regime?: MarketRegime;
+  scoreThreshold?: number | null;
 }
 
 /**
  * Table component displaying ranked tickers with scores and signals
  */
-export default function ResultsTable({ tickers, regime }: ResultsTableProps) {
+export default function ResultsTable({ tickers, regime, scoreThreshold }: ResultsTableProps) {
   const getScoreColor = (score: number): "green" | "blue" | "grey" => {
     if (score >= 70) return "green";
     if (score >= 40) return "blue";
     return "grey";
+  };
+
+  // "Show all scanned" mode populates these diagnostic flags; show a Status column then.
+  const showStatus = tickers.some((t) => t.passed_hard_filters != null || t.is_candidate != null);
+  const statusBadge = (t: TickerScore) => {
+    if (t.is_candidate) return <Badge color="green">Candidate</Badge>;
+    if (t.passed_hard_filters) return <Badge color="blue">Below threshold</Badge>;
+    return <Badge color="grey">Failed filters</Badge>;
   };
 
   // Add rank to items for display
@@ -31,9 +40,13 @@ export default function ResultsTable({ tickers, regime }: ResultsTableProps) {
       header={
         <Header
           counter={`(${tickers.length})`}
-          description="Stocks ranked by bullish score"
+          description={
+            showStatus
+              ? `All scanned stocks — Candidate = passed hard filters AND score ≥ ${scoreThreshold ?? 65}`
+              : "Stocks ranked by bullish score"
+          }
         >
-          Ranked Results
+          {showStatus ? "All Scanned Stocks" : "Ranked Results"}
         </Header>
       }
       columnDefinitions={[
@@ -59,6 +72,14 @@ export default function ResultsTable({ tickers, regime }: ResultsTableProps) {
           ),
           width: 120,
         },
+        ...(showStatus
+          ? [{
+              id: "status",
+              header: "Status",
+              cell: (item: TickerScore) => statusBadge(item),
+              width: 150,
+            }]
+          : []),
         {
           id: "price",
           header: "Price",

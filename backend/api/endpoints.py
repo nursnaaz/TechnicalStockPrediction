@@ -100,7 +100,11 @@ async def scan(
     
     try:
         # Execute the scan
-        response = await orchestrator.execute_scan(request)
+        # include_all -> return the whole scanned universe (candidates + below-threshold
+        # + hard-filter failures) with status flags, instead of candidates only.
+        response = await orchestrator.execute_scan(
+            request, apply_signal_gate=not request.include_all
+        )
         
         # Persist the result
         await scan_store.save(response.scan_id, response)

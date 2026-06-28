@@ -126,8 +126,8 @@ async def test_scan_successful_execution(
         scan_store=mock_scan_store
     )
     
-    # Verify orchestrator was called with request
-    mock_orchestrator.execute_scan.assert_called_once_with(sample_scan_request)
+    # Verify orchestrator was called with request (default scan = candidates only)
+    mock_orchestrator.execute_scan.assert_called_once_with(sample_scan_request, apply_signal_gate=True)
     
     # Verify result was saved
     mock_scan_store.save.assert_called_once_with(

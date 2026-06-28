@@ -7,6 +7,7 @@ import SpaceBetween from "@cloudscape-design/components/space-between";
 import Input from "@cloudscape-design/components/input";
 import Tabs from "@cloudscape-design/components/tabs";
 import Button from "@cloudscape-design/components/button";
+import Toggle from "@cloudscape-design/components/toggle";
 import "@cloudscape-design/global-styles/index.css";
 
 import ScanButton from "./components/ScanButton";
@@ -23,6 +24,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ScanResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const handleScan = async () => {
     // Validate input
@@ -48,7 +50,7 @@ function App() {
       }
 
       // Execute scan
-      const data = await executeScan(tickerList);
+      const data = await executeScan(tickerList, showAll);
       setResults(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Scan failed. Please try again.");
@@ -100,6 +102,13 @@ function App() {
                           onKeyDown={handleKeyPress}
                         />
                         <ScanButton onClick={handleScan} loading={loading} />
+                        <Toggle
+                          checked={showAll}
+                          onChange={({ detail }) => setShowAll(detail.checked)}
+                          description="Show every scanned stock with its status (Candidate / Below threshold / Failed filters), not just buy candidates."
+                        >
+                          Show all scanned stocks
+                        </Toggle>
                       </SpaceBetween>
                     </Container>
 
@@ -110,7 +119,11 @@ function App() {
                     {results && (
                       <SpaceBetween size="m">
                         <MarketRegimeBadge regime={results.market_regime} />
-                        <ResultsTable tickers={results.ranked_tickers} regime={results.market_regime} />
+                        <ResultsTable
+                          tickers={results.ranked_tickers}
+                          regime={results.market_regime}
+                          scoreThreshold={results.score_threshold}
+                        />
                       </SpaceBetween>
                     )}
                   </SpaceBetween>

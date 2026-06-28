@@ -223,6 +223,8 @@ class ScanOrchestrator:
                                 "avg_volume_20": indicators.avg_volume_20,
                                 "relative_strength": indicators.relative_strength,
                             },
+                            passed_hard_filters=False,
+                            is_candidate=False,
                         ))
                         continue
 
@@ -260,7 +262,9 @@ class ScanOrchestrator:
                         bullish_score=bullish_score,
                         signals=signals,
                         current_price=current_price,
-                        indicators=indicators_dict
+                        indicators=indicators_dict,
+                        passed_hard_filters=True,
+                        is_candidate=bullish_score >= regime.threshold,
                     )
 
                     scored_tickers.append(ticker_score)
@@ -296,7 +300,8 @@ class ScanOrchestrator:
                 scan_id=scan_id,
                 market_regime=market_regime,
                 ranked_tickers=ranked_tickers,
-                metadata=metadata
+                metadata=metadata,
+                score_threshold=regime.threshold,
             )
             
             logger.info(

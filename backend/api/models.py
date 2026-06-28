@@ -13,9 +13,14 @@ from datetime import datetime
 class ScanRequest(BaseModel):
     """Request model for initiating a scan."""
     tickers: List[str] = Field(
-        ..., 
-        min_length=1, 
+        ...,
+        min_length=1,
         description="List of ticker symbols to analyze"
+    )
+    include_all: bool = Field(
+        default=False,
+        description="If true, return ALL scanned tickers (candidates + below-threshold + "
+                    "hard-filter failures) with a status, instead of only buy candidates."
     )
 
     class Config:
@@ -62,6 +67,11 @@ class TickerScore(BaseModel):
     signals: IndicatorSignals = Field(description="Individual indicator signals")
     current_price: float = Field(description="Current stock price")
     indicators: Dict[str, Optional[float]] = Field(description="Raw indicator values")
+    # V3 diagnostic fields (populated when include_all is requested)
+    passed_hard_filters: Optional[bool] = Field(
+        default=None, description="Whether the ticker passed the Minervini hard filters")
+    is_candidate: Optional[bool] = Field(
+        default=None, description="Whether it is a BUY candidate (passed filters AND score >= threshold)")
 
     class Config:
         json_schema_extra = {
@@ -112,6 +122,8 @@ class ScanResponse(BaseModel):
     market_regime: MarketRegime = Field(description="Current market regime")
     ranked_tickers: List[TickerScore] = Field(description="Tickers ranked by bullish score")
     metadata: ScanMetadata = Field(description="Scan execution metadata")
+    score_threshold: Optional[int] = Field(
+        default=None, description="BUY score threshold for this regime (65 bullish / 75 neutral)")
 
     class Config:
         json_schema_extra = {

@@ -25,6 +25,9 @@ export interface TickerScore {
     avg_volume_20?: number | null;
     relative_strength?: number | null;
   };
+  // V3 diagnostic fields (present when include_all is requested)
+  passed_hard_filters?: boolean | null;
+  is_candidate?: boolean | null;
 }
 
 export interface ScanMetadata {
@@ -38,8 +41,10 @@ export interface ScanResponse {
   market_regime: MarketRegime;
   ranked_tickers: TickerScore[];
   metadata: ScanMetadata;
+  score_threshold?: number | null;
 }
 
 export interface ScanRequest {
   tickers: string[];
+  include_all?: boolean;
 }
