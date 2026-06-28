@@ -216,6 +216,38 @@ parameters per component; no machine learning; if out-of-sample precision <75% �
   - Ask the user before finalizing if any criterion misses.
   - _Requirements: Success Criteria §6 of requirement.md_
 
+- [ ] 4.6 Comprehensive halal-universe backtest + optimal threshold/score report
+  - **Goal:** reproduce the V2 backtesting workflow for the V3 engine — a large multi-date, multi-stock
+    backtest that sweeps score/gain thresholds to find the optimal operating point and emits an HTML
+    report. (Mirrors V2's `backend/generate_report.py` → `backtest_report.html` and
+    `backend/error_analysis.py`.)
+  - **Universe:** run the **full halal list (hundreds of tickers)** from `ALL_HALAL_STOCKS.txt` /
+    `halal_stocks_usa.md` (371 entries), not just the 108-ticker subset. Batch to respect the 5-concurrent
+    Polygon limit; cache per scan.
+  - **Dates:** cover **many dates across regimes** — at minimum the in-sample 5 (V1), the out-of-sample 5
+    (V3), the bearish March-2026 control, plus additional bull/bear/neutral months; ideally use the
+    rolling backtest (`/api/v1/backtest/rolling`, monthly) over 2024–2026.
+  - **Threshold/score optimization (V2-style sweep):** for each date/period, sweep the **score
+    threshold** (e.g. 50→90 step 5) and the **gain threshold** (e.g. 3%→10%) and tabulate
+    Precision / Recall / F1 / portfolio return per combination; identify the **optimal** operating point.
+    ⚠️ **anti-overfit:** find the optimum on **in-sample** dates only, then **report its out-of-sample
+    performance** — do not pick the threshold that maximizes OOS. Confirm V3's regime thresholds (65
+    BULLISH / 75 NEUTRAL) sit near the in-sample optimum; flag if they don't.
+  - **Implement:** update `backend/generate_report.py` to be **V3 regime-aware** (it currently hardcodes
+    `SCORE_THRESHOLD=50`, `GAIN_THRESHOLD=5` and a fixed 5-date/108-ticker set) — parameterize the
+    universe, dates, and sweep ranges; reuse the `/backtest/single` + `/rolling` endpoints. Generate a
+    refreshed **`backtest_report.html`** with: per-period confusion matrix (TP/FP/FN/TN),
+    accuracy/precision/recall/F1, portfolio P&L, the threshold×gain heatmap, the optimal point, and an
+    in-sample-vs-out-of-sample comparison. Optionally extend `error_analysis.py` for per-date TP/FP/FN/TN
+    drill-down.
+  - **Tests:** unit-test the sweep/aggregation math (confusion-matrix counts, precision/recall/F1,
+    optimal-point selection) on synthetic trade sets — `tests/backtest/test_report.py`; do not depend on
+    live data for the math.
+  - **Deliverable:** the regenerated `backtest_report.html` + a short written summary of the recommended
+    score/gain thresholds and the in-sample/out-of-sample metrics. Share with the user for review.
+  - **Definition of done:** report generated, sweep math unit-tested, optimal thresholds documented.
+  - _Requirements: V1, V3, V4 + Success Criteria §6 (validated at scale); Anti-overfitting §4_
+
 ### Phase 5 — Playwright Feature / E2E Testing (FINAL COMPLETION GATE)
 
 > ⛔ **No task in Phases 1–4 is considered fully complete until this phase passes.** Extensive Playwright
@@ -282,7 +314,8 @@ parameters per component; no machine learning; if out-of-sample precision <75% �
 - **Definition of Done (per task):** implementation + **detailed unit tests (mandatory — no unit tests =
   not done)** + referenced property tests + >80% coverage.
 - **Definition of Done (whole project):** all per-task unit tests + integration tests (4.3) + backtest
-  validation V1–V4 (4.4) + backend regression (4.5) + **all Playwright feature tests green (5.2)**.
+  validation V1–V4 (4.4) + backend regression (4.5) + **comprehensive halal-universe backtest report
+  with optimal thresholds (4.6)** + **all Playwright feature tests green (5.3)**.
 - **Requirement coverage:** R1→1.1,1.2,1.3,1.4,4.1 · R2→2.2 · R3→2.3 · R4→2.4 · R5→3.1 · R6→3.2 ·
   R7→1.3,4.1,4.2 · R8→2.1 · R9→1.1,2.1 · R10→1.1,2.1.
 - **Property coverage:** P1→1.4 · P2→2.2 · P3→2.3 · P4→2.4 · P5→3.1 · P6→3.2 · P7→4.1 · P8→4.1 ·
@@ -310,9 +343,10 @@ parameters per component; no machine learning; if out-of-sample precision <75% �
     { "id": 8, "tasks": ["4.3"] },
     { "id": 9, "tasks": ["4.4"] },
     { "id": 10, "tasks": ["4.5"] },
-    { "id": 11, "tasks": ["5.1"] },
-    { "id": 12, "tasks": ["5.2"] },
-    { "id": 13, "tasks": ["5.3"] }
+    { "id": 11, "tasks": ["4.6"] },
+    { "id": 12, "tasks": ["5.1"] },
+    { "id": 13, "tasks": ["5.2"] },
+    { "id": 14, "tasks": ["5.3"] }
   ]
 }
 ```

@@ -450,6 +450,24 @@ Run when ≥2 V3 components are wired together (new `tests/integration/test_v3_p
 - **IT-5 Backtest endpoints** (`/api/v1/backtest/single`, `/rolling`): regime-aware predicted-bullish
   reaches the confusion matrix; March-2026 single backtest → 0 predicted-bullish.
 
+### 6.6 Comprehensive backtest + optimal-threshold report (V2-style, at scale)
+
+Beyond the focused V1–V4 suite, a large-scale backtest reproduces the V2 reporting workflow for V3
+(`backend/generate_report.py` → `backtest_report.html`, `backend/error_analysis.py`):
+
+- **Universe:** full halal list (hundreds — `ALL_HALAL_STOCKS.txt` / `halal_stocks_usa.md`, 371), batched
+  to the 5-concurrent Polygon limit.
+- **Dates:** many across regimes (in-sample 5 + OOS 5 + March-2026 control + extra bull/bear/neutral
+  months), ideally via `/api/v1/backtest/rolling` (monthly, 2024–2026).
+- **Optimization:** sweep score threshold (50→90) × gain threshold (3%→10%); tabulate
+  precision/recall/F1/portfolio per cell; pick the optimum **on in-sample only**, then report its OOS
+  performance (anti-overfit). Confirm regime thresholds 65/75 sit near the in-sample optimum.
+- **Output:** regenerated `backtest_report.html` (per-period confusion matrix, P&L, threshold×gain
+  heatmap, optimal point, in-sample vs OOS) + a written threshold recommendation. Sweep/aggregation math
+  is unit-tested on synthetic trades (no live-data dependency for the math).
+
+Implemented by **task 4.6**.
+
 ### 6.5 Feature / E2E tests (Playwright — `frontend/tests/e2e/`) — FINAL COMPLETION GATE
 
 **Extensive Playwright feature testing is the final gate: V3 is not "complete" until the full
