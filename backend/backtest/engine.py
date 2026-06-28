@@ -12,7 +12,8 @@ from uuid import uuid4
 
 from core.orchestrator import ScanOrchestrator
 from core.api_client import RestApiClient
-from api.models import ScanRequest
+from api.models import ScanRequest, MarketRegime
+from config import config
 from .metrics import BacktestMetrics
 
 logger = logging.getLogger(__name__)
@@ -59,8 +60,11 @@ class BacktestEngine:
         scan_request = ScanRequest(tickers=tickers)
         
         try:
+            # Backtest mode: get ALL hard-filter-passing scored tickers + regime
+            # (skip the production threshold/bearish gate) so we can compute the full
+            # confusion matrix and sweep thresholds.
             scan_result = await self.orchestrator.execute_scan(
-                scan_request, as_of_date=as_of_date
+                scan_request, as_of_date=as_of_date, apply_signal_gate=False
             )
         except Exception as e:
             logger.error(f"Scan failed for {as_of_date}: {e}")
@@ -71,9 +75,21 @@ class BacktestEngine:
                 "as_of_date": as_of_date
             }
         
-        # Step 2: For each predicted ticker, fetch forward-looking data
+        # Step 2: Determine regime-aware BUY parameters (matches shipped logic).
+        regime = scan_result.market_regime
+        if regime == MarketRegime.BEARISH:
+            regime_tradeable = False
+            bullish_threshold = config.BULLISH_SCORE_THRESHOLD  # unused (nothing tradeable)
+        elif regime == MarketRegime.NEUTRAL:
+            regime_tradeable = True
+            bullish_threshold = config.NEUTRAL_SCORE_THRESHOLD
+        else:  # BULLISH
+            regime_tradeable = True
+            bullish_threshold = config.BULLISH_SCORE_THRESHOLD
+
+        # For each scored ticker, fetch forward-looking data
         trade_results = []
-        
+
         for ticker_score in scan_result.ranked_tickers:
             ticker = ticker_score.ticker
             entry_price = ticker_score.current_price
@@ -101,7 +117,9 @@ class BacktestEngine:
                     score=score,
                     signals=ticker_score.signals,
                     forward_data=forward_data,
-                    horizon_days=horizon_days
+                    horizon_days=horizon_days,
+                    regime_tradeable=regime_tradeable,
+                    bullish_threshold=bullish_threshold,
                 )
                 
                 trade_results.append(trade_result)
@@ -182,7 +200,9 @@ class BacktestEngine:
         score: int,
         signals,
         forward_data: List[Dict],
-        horizon_days: int
+        horizon_days: int,
+        regime_tradeable: bool = True,
+        bullish_threshold: int = 65,
     ) -> Dict:
         """
         Analyze how a trade performed based on forward-looking data.
@@ -243,18 +263,16 @@ class BacktestEngine:
         # Determine if trade was a winner
         is_winner = return_pct > 0
         
-        # TRUE POSITIVE LOGIC (Confusion Matrix):
-        # Prediction: score >= 70 means "predicted bullish"
-        # Reality: max_gain >= 5% means "stock actually went up"
+        # CONFUSION MATRIX (V3, regime-aware):
+        # Prediction (BUY) = market is tradeable (not BEARISH) AND score >= regime
+        #   threshold (65 BULLISH / 75 NEUTRAL). In a BEARISH market NOTHING is a BUY.
+        # Reality: max_gain >= 5% means "stock actually went up".
         #
-        # TP: score >= 70 AND max_gain >= 5% (correctly predicted bullish)
-        # FP: score >= 70 AND max_gain <  5% (wrongly predicted bullish)
-        # FN: score <  70 AND max_gain >= 5% (missed opportunity)
-        # TN: score <  70 AND max_gain <  5% (correctly stayed out)
-        bullish_threshold = 70
+        # TP: predicted BUY AND went up           FP: predicted BUY AND did not
+        # FN: not predicted AND went up           TN: not predicted AND did not
         gain_threshold = 5.0
-        
-        predicted_bullish = score >= bullish_threshold
+
+        predicted_bullish = regime_tradeable and (score >= bullish_threshold)
         actually_went_up = max_gain_pct >= gain_threshold
         
         if predicted_bullish and actually_went_up:

@@ -66,10 +66,23 @@ class ScanOrchestrator:
         
         logger.info("ScanOrchestrator initialized")
     
-    async def execute_scan(self, request: ScanRequest, as_of_date: str = None) -> ScanResponse:
+    async def execute_scan(
+        self,
+        request: ScanRequest,
+        as_of_date: str = None,
+        apply_signal_gate: bool = True,
+    ) -> ScanResponse:
         """
         Execute complete scan pipeline.
-        
+
+        Args:
+            apply_signal_gate: When True (production/UI), bearish regimes emit zero
+                candidates and only tickers scoring >= the regime threshold are
+                returned. When False (backtesting), the bearish short-circuit and the
+                threshold filter are skipped so the caller receives ALL
+                hard-filter-passing tickers with scores plus the regime, enabling a
+                full confusion matrix and threshold sweeps.
+
         Pipeline Flow:
         1. Clear API client cache
         2. Build universe from ticker list (validate and filter)
@@ -119,7 +132,8 @@ class ScanOrchestrator:
             logger.info(f"Market regime: {market_regime.value} (threshold={regime.threshold})")
 
             # V3 R1: BEARISH regime emits ZERO candidates — short-circuit before scoring.
-            if not regime.emit_signals:
+            # (Skipped in backtest mode so the caller can compute FN/TN over the universe.)
+            if apply_signal_gate and not regime.emit_signals:
                 logger.info(f"Scan {scan_id}: bearish regime — emitting zero candidates")
                 duration = time.time() - start_time
                 return ScanResponse(
@@ -199,6 +213,15 @@ class ScanOrchestrator:
                             stock_data.volumes,
                             rs_percentile=_rs_pct(indicators.relative_strength),
                         )
+
+                    # V3 R7: BUY only when score clears the regime threshold
+                    # (65 BULLISH / 75 NEUTRAL). Below-threshold = not a candidate.
+                    # (Skipped in backtest mode so all scored tickers are returned.)
+                    if apply_signal_gate and bullish_score < regime.threshold:
+                        logger.info(
+                            f"{ticker} below threshold: score={bullish_score} < {regime.threshold}"
+                        )
+                        continue
 
                     indicators_dict = {
                         "sma_50": indicators.sma_50,

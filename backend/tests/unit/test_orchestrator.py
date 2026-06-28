@@ -447,13 +447,13 @@ class TestExecuteScan:
             volume_above_average=False,
             relative_strength_positive=False
         )
-        mock_scoring_engine.calculate_enhanced_score.return_value = (0, signals, Mock(), Mock())
+        mock_scoring_engine.calculate_enhanced_score.return_value = (80, signals, Mock(), Mock())
         mock_ranking_service.rank_tickers.side_effect = lambda x: x
-        
+
         # Execute scan
         request = ScanRequest(tickers=tickers)
         response = await orchestrator.execute_scan(request)
-        
+
         # Verify metadata
         assert response.metadata.ticker_count == 2
         assert response.metadata.duration_seconds >= 0
@@ -575,3 +575,31 @@ class TestV3RegimeGate:
 
         assert response.ranked_tickers == []          # excluded, valid empty result
         mock_scoring_engine.calculate_enhanced_score.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_below_threshold_score_excluded(
+        self,
+        orchestrator,
+        mock_api_client,
+        mock_universe_builder,
+        mock_regime_analyzer,
+        mock_indicator_calc,
+        mock_scoring_engine,
+        mock_ranking_service,
+        sample_stock_data,
+        sample_indicators,
+    ):
+        """A scored ticker below the regime threshold is not a candidate (R7)."""
+        mock_universe_builder.build_universe.return_value = ["AAPL"]
+        mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, threshold=65)
+        mock_api_client.fetch_stock_data.return_value = sample_stock_data
+        mock_indicator_calc.calculate_all.return_value = sample_indicators
+        signals = IndicatorSignals(
+            price_above_sma50=True, price_above_ema20=True, macd_above_signal=False,
+            macd_histogram_positive=False, volume_above_average=False, relative_strength_positive=True,
+        )
+        mock_scoring_engine.calculate_enhanced_score.return_value = (60, signals, Mock(), Mock())  # < 65
+        mock_ranking_service.rank_tickers.side_effect = lambda x: x
+
+        response = await orchestrator.execute_scan(ScanRequest(tickers=["AAPL"]))
+        assert response.ranked_tickers == []  # 60 < 65 → excluded
