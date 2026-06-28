@@ -65,11 +65,48 @@ class ScoringEngine:
         }
         return all(checks.values()), checks
 
+    @staticmethod
+    def divergence_penalty(current_price: float, indicators: TechnicalIndicators) -> int:
+        """
+        Indicator divergence penalty (V3, R6) — returns 0, 4, or 8 (a POSITIVE
+        magnitude to subtract).
+
+        Counts only available (non-None) signals among {RSI>50, MACD>signal, ROC>0,
+        price>SMA50}. agreement = max(bull, bear) / n. Skips (returns 0) when fewer
+        than 2 signals are available.
+
+        - agreement < 0.6   → 8  (major disagreement, e.g. 2-2 → 0.5)
+        - agreement <= 0.75 → 4  (some disagreement, e.g. 3-1 → 0.75)  [note: <=, not <]
+        - otherwise         → 0
+        """
+        signals = []
+        if indicators.rsi_14 is not None:
+            signals.append(indicators.rsi_14 > 50)
+        if indicators.macd_line is not None and indicators.macd_signal is not None:
+            signals.append(indicators.macd_line > indicators.macd_signal)
+        if indicators.roc_10 is not None:
+            signals.append(indicators.roc_10 > 0)
+        if indicators.sma_50 is not None:
+            signals.append(current_price > indicators.sma_50)
+
+        if len(signals) < 2:
+            return 0
+
+        bull = sum(signals)
+        bear = len(signals) - bull
+        agreement = max(bull, bear) / len(signals)
+        if agreement < 0.6:
+            return 8
+        if agreement <= 0.75:
+            return 4
+        return 0
+
     def calculate_score(
         self,
         current_price: float,
         current_volume: float,
-        indicators: TechnicalIndicators
+        indicators: TechnicalIndicators,
+        rs_percentile: float = None,
     ) -> tuple[int, IndicatorSignals]:
         """
         Calculate bullish score with gradient scoring.
@@ -237,23 +274,32 @@ class ScoringEngine:
             elif rsi < 30:
                 strength_score += 3    # Deeply oversold — high risk but bounce possible
 
-        # Relative Strength vs market: 0-10 points (gradient)
-        relative_strength_positive = False
-        if indicators.relative_strength is not None:
+        # Relative Strength: 0-10 points.
+        # V3 R5: prefer percentile rank across the universe (separates true leaders
+        # from "less bad"). Fall back to raw-RS gradient when no universe context.
+        relative_strength_positive = (
+            indicators.relative_strength is not None and indicators.relative_strength > 0
+        )
+        if rs_percentile is not None:
+            if rs_percentile >= 90:
+                strength_score += 10   # top-decile leader
+            elif rs_percentile >= 70:
+                strength_score += 7    # top 30%
+            elif rs_percentile >= 50:
+                strength_score += 4    # above median
+            # else: below median = not a leader, 0 pts
+        elif indicators.relative_strength is not None:
             rs = indicators.relative_strength
             if rs > 5:
-                strength_score += 10   # Significantly outperforming market
-                relative_strength_positive = True
+                strength_score += 10
             elif rs > 2:
-                strength_score += 8    # Outperforming
-                relative_strength_positive = True
+                strength_score += 8
             elif rs > 0:
-                strength_score += 6    # Slightly outperforming
-                relative_strength_positive = True
+                strength_score += 6
             elif rs > -2:
-                strength_score += 3    # In line with market
+                strength_score += 3
             elif rs > -5:
-                strength_score += 1    # Slightly underperforming
+                strength_score += 1
 
         total_score += min(strength_score, 20)
 
@@ -292,6 +338,9 @@ class ScoringEngine:
 
         total_score += min(confirmation_score, 20)
 
+        # === INDICATOR DIVERGENCE PENALTY (0 to -8 pts) — V3 (R6) ===
+        total_score -= self.divergence_penalty(current_price, indicators)
+
         # === FINAL SCORE === (clamped to [0, 100] — P8; penalties can drive it negative)
         final_score = int(min(max(round(total_score), 0), 100))
 
@@ -314,6 +363,7 @@ class ScoringEngine:
         indicators: TechnicalIndicators,
         prices: np.ndarray,
         volumes: np.ndarray,
+        rs_percentile: float = None,
     ) -> tuple[int, IndicatorSignals, StageResult, PatternResult]:
         """
         Calculate enhanced score with Stage 2 + Pattern Detection bonus.
@@ -332,7 +382,9 @@ class ScoringEngine:
             Tuple of (score, signals, stage_result, pattern_result)
         """
         # Get base score (0-80 max from 4 components of 20 each)
-        base_score, signals = self.calculate_score(current_price, current_volume, indicators)
+        base_score, signals = self.calculate_score(
+            current_price, current_volume, indicators, rs_percentile=rs_percentile
+        )
         
         # === COMPONENT 5: STAGE & PATTERN BONUS (0-20 pts) ===
         bonus = 0.0

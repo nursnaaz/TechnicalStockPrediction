@@ -143,33 +143,53 @@ class ScanOrchestrator:
                 logger.error(f"Failed to fetch market data: {e}")
                 raise ScanError("Unable to fetch market data for analysis")
             
-            # Step 5: Process each ticker
-            scored_tickers: List[TickerScore] = []
+            # === Step 5 — PASS 1: fetch + indicators + raw RS for every ticker ===
+            # (Two-pass: RS percentile needs all tickers' raw RS before any is scored.)
+            rows = []  # (ticker, stock_data, indicators, current_price, current_volume)
             fetch_error_count = 0  # distinguish "all fetches errored" from "validly filtered out"
 
             for ticker in universe:
                 try:
-                    # Fetch stock data (point-in-time if as_of_date provided)
                     stock_data = await self.api_client.fetch_stock_data(
                         ticker, days=config.HISTORY_FETCH_DAYS, as_of_date=as_of_date
                     )
-                    
-                    # Calculate indicators
                     indicators = self.indicator_calc.calculate_all(stock_data, market_data)
-                    
-                    # Get current price and volume
                     current_price = float(stock_data.prices[-1])
                     current_volume = float(stock_data.volumes[-1])
+                    rows.append((ticker, stock_data, indicators, current_price, current_volume))
+                except ApiError as e:
+                    fetch_error_count += 1
+                    logger.warning(f"Failed to fetch {ticker}: {e}. Skipping.")
+                    continue
+                except Exception as e:
+                    fetch_error_count += 1
+                    logger.error(f"Unexpected error fetching {ticker}: {e}. Skipping.")
+                    continue
 
-                    # V3 R2: Minervini hard filters — any fail → exclude (score 0).
-                    # This is a VALID exclusion, not a fetch error.
+            # V3 R5: relative-strength percentile across the universe (min-rank for ties).
+            # Precompute a {value -> percentile} map; None/unseen → 0.0 (no crash).
+            rs_values = sorted(
+                r[2].relative_strength for r in rows if r[2].relative_strength is not None
+            )
+            rank_map = (
+                {v: (i / len(rs_values)) * 100 for i, v in enumerate(rs_values)}
+                if rs_values else {}
+            )
+
+            def _rs_pct(rs):
+                return rank_map.get(rs, 0.0)
+
+            # === Step 5 — PASS 2: hard-filter gate + scoring with RS percentile ===
+            scored_tickers: List[TickerScore] = []
+            for ticker, stock_data, indicators, current_price, current_volume in rows:
+                try:
+                    # V3 R2: Minervini hard filters — any fail → exclude (valid, not an error).
                     passed, _checks = self.scoring_engine.passes_hard_filters(current_price, indicators)
                     if not passed:
                         failed = [k for k, ok in _checks.items() if not ok]
                         logger.info(f"{ticker} excluded by hard filters: failed {failed}")
                         continue
 
-                    # Calculate enhanced score (with Stage 2 + Pattern detection)
                     bullish_score, signals, stage_result, pattern_result = \
                         self.scoring_engine.calculate_enhanced_score(
                             current_price,
@@ -177,9 +197,9 @@ class ScanOrchestrator:
                             indicators,
                             stock_data.prices,
                             stock_data.volumes,
+                            rs_percentile=_rs_pct(indicators.relative_strength),
                         )
-                    
-                    # Build indicators dict for response
+
                     indicators_dict = {
                         "sma_50": indicators.sma_50,
                         "ema_20": indicators.ema_20,
@@ -189,8 +209,7 @@ class ScanOrchestrator:
                         "avg_volume_20": indicators.avg_volume_20,
                         "relative_strength": indicators.relative_strength
                     }
-                    
-                    # Create TickerScore
+
                     ticker_score = TickerScore(
                         ticker=ticker,
                         bullish_score=bullish_score,
@@ -198,17 +217,12 @@ class ScanOrchestrator:
                         current_price=current_price,
                         indicators=indicators_dict
                     )
-                    
+
                     scored_tickers.append(ticker_score)
                     logger.info(f"Processed {ticker}: score={bullish_score}")
-                    
-                except ApiError as e:
-                    fetch_error_count += 1
-                    logger.warning(f"Failed to process {ticker}: {e}. Skipping.")
-                    continue
+
                 except Exception as e:
-                    fetch_error_count += 1
-                    logger.error(f"Unexpected error processing {ticker}: {e}. Skipping.")
+                    logger.error(f"Unexpected error scoring {ticker}: {e}. Skipping.")
                     continue
 
             # V3: an empty candidate list is only an ERROR when EVERY fetch failed.

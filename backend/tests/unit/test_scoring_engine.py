@@ -362,3 +362,76 @@ class TestExtensionPenalty:
         ind = self._extended_indicators(3.0, rsi=55.0, roc=-10.0)
         score, _ = engine.calculate_score(100.0, 1_000_000.0, ind)
         assert 0 <= score <= 100  # no crash; divergence block skipped at low extension
+
+
+# ============================================================================
+# V3 Phase 3: RS percentile (R5) and indicator divergence penalty (R6)
+# ============================================================================
+
+class TestRSPercentile:
+    def _base(self):
+        return TechnicalIndicators(
+            sma_50=95.0, ema_20=98.0, rsi_14=60.0, roc_10=3.0,
+            macd_line=1.0, macd_signal=0.5, macd_histogram=0.5,
+            avg_volume_20=1_000_000.0, relative_strength=2.0,
+            proximity_to_20d_high=96.0,
+        )
+
+    def test_percentile_monotonic_non_decreasing(self, engine):
+        prev = -1
+        for pct in [0, 49, 50, 69, 70, 89, 90, 100]:
+            score, _ = engine.calculate_score(100.0, 1_500_000.0, self._base(), rs_percentile=pct)
+            assert score >= prev
+            prev = score
+
+    def test_percentile_tier_boundaries(self, engine):
+        s49, _ = engine.calculate_score(100.0, 1_500_000.0, self._base(), rs_percentile=49)
+        s50, _ = engine.calculate_score(100.0, 1_500_000.0, self._base(), rs_percentile=50)
+        s70, _ = engine.calculate_score(100.0, 1_500_000.0, self._base(), rs_percentile=70)
+        s90, _ = engine.calculate_score(100.0, 1_500_000.0, self._base(), rs_percentile=90)
+        assert s50 > s49      # crossing the 50th tier adds points
+        assert s70 > s50      # 70th tier adds more
+        assert s90 > s70      # 90th tier adds the most
+
+    def test_none_percentile_falls_back_to_raw_rs(self, engine):
+        # No crash, returns a valid score when rs_percentile is omitted
+        score, _ = engine.calculate_score(100.0, 1_500_000.0, self._base())
+        assert 0 <= score <= 100
+
+
+class TestDivergencePenalty:
+    def _ind(self, rsi, macd_above, roc, price_above_sma):
+        sma = 90.0 if price_above_sma else 110.0  # price fixed at 100
+        return TechnicalIndicators(
+            sma_50=sma, rsi_14=rsi, roc_10=roc,
+            macd_line=(1.0 if macd_above else -1.0), macd_signal=0.0,
+        )
+
+    def test_four_zero_agreement_no_penalty(self):
+        ind = self._ind(rsi=60, macd_above=True, roc=2.0, price_above_sma=True)  # 4 bull
+        assert ScoringEngine.divergence_penalty(100.0, ind) == 0
+
+    def test_three_one_split_penalty_four(self):
+        ind = self._ind(rsi=60, macd_above=True, roc=2.0, price_above_sma=False)  # 3 bull, 1 bear
+        assert ScoringEngine.divergence_penalty(100.0, ind) == 4
+
+    def test_two_two_split_penalty_eight(self):
+        ind = self._ind(rsi=60, macd_above=True, roc=-2.0, price_above_sma=False)  # 2 bull, 2 bear
+        assert ScoringEngine.divergence_penalty(100.0, ind) == 8
+
+    def test_exactly_075_gives_four_not_zero(self):
+        """The corrected <= 0.75 boundary: a 3-1 split (0.75) must score -4, not 0."""
+        ind = self._ind(rsi=40, macd_above=True, roc=2.0, price_above_sma=True)  # rsi<50 bear → 3-1
+        assert ScoringEngine.divergence_penalty(100.0, ind) == 4
+
+    def test_fewer_than_two_signals_skipped(self):
+        ind = TechnicalIndicators(rsi_14=60.0)  # only 1 available signal
+        assert ScoringEngine.divergence_penalty(100.0, ind) == 0
+
+    def test_none_aware_denominator(self):
+        """3 available signals, 2 bull / 1 bear → agreement 0.667 → -4."""
+        ind = TechnicalIndicators(rsi_14=60.0, roc_10=2.0, sma_50=110.0)  # rsi bull, roc bull, price<sma bear
+        assert ScoringEngine.divergence_penalty(100.0, ind) == 4
+
+    def test_no_typeerror_with_all_none(self):
+        assert ScoringEngine.divergence_penalty(100.0, TechnicalIndicators()) == 0
