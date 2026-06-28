@@ -18,9 +18,8 @@ from typing import Optional
 import numpy as np
 
 from api.models import MarketRegime
-from core.api_client import RestApiClient, ApiError
 from config import config
-
+from core.api_client import ApiError, RestApiClient
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +27,10 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RegimeResult:
     """Outcome of regime analysis consumed by the orchestrator."""
+
     regime: MarketRegime
-    threshold: int          # score threshold for a BUY (ignored when emit_signals is False)
-    emit_signals: bool      # False in BEARISH → orchestrator returns zero candidates
+    threshold: int  # score threshold for a BUY (ignored when emit_signals is False)
+    emit_signals: bool  # False in BEARISH → orchestrator returns zero candidates
 
 
 class MarketRegimeAnalyzer:
@@ -106,9 +106,7 @@ class MarketRegimeAnalyzer:
                     emit_signals=False,
                 )
 
-            logger.info(
-                f"Market regime: NEUTRAL (close={current_close:.2f}, SMA200={sma_200:.2f})"
-            )
+            logger.info(f"Market regime: NEUTRAL (close={current_close:.2f}, SMA200={sma_200:.2f})")
             return self._neutral()
 
         except ApiError as e:
@@ -130,14 +128,14 @@ class MarketRegimeAnalyzer:
         )
 
     @staticmethod
-    def _calculate_sma(prices: 'np.ndarray', period: int) -> Optional[float]:
+    def _calculate_sma(prices: "np.ndarray", period: int) -> Optional[float]:
         """Calculate Simple Moving Average, or None if insufficient data."""
         if len(prices) < period:
             return None
         return float(np.mean(prices[-period:]))
 
     @staticmethod
-    def _calculate_ema(prices: 'np.ndarray', period: int) -> Optional[float]:
+    def _calculate_ema(prices: "np.ndarray", period: int) -> Optional[float]:
         """Calculate Exponential Moving Average (context only), or None if insufficient."""
         if len(prices) < period:
             return None

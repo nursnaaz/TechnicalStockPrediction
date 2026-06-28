@@ -10,9 +10,9 @@ Tests verify:
 """
 
 import pytest
-from core.scoring_engine import ScoringEngine
+
 from core.models import TechnicalIndicators
-from api.models import IndicatorSignals
+from core.scoring_engine import ScoringEngine
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def strong_bullish_indicators():
         relative_strength=6.0,
         rsi_14=60.0,
         roc_10=4.0,
-        proximity_to_20d_high=99.0
+        proximity_to_20d_high=99.0,
     )
 
 
@@ -52,7 +52,7 @@ def weak_bearish_indicators():
         relative_strength=-8.0,
         rsi_14=25.0,
         roc_10=-6.0,
-        proximity_to_20d_high=78.0
+        proximity_to_20d_high=78.0,
     )
 
 
@@ -179,7 +179,7 @@ class TestScoringEngine:
             sma_50=100.0,
             macd_line=0.5,
             macd_signal=0.8,  # MACD below signal but close
-            macd_histogram=-0.3
+            macd_histogram=-0.3,
         )
         score, signals = engine.calculate_score(100.0, 0, indicators)
         assert score > 0  # Should get some momentum credit
@@ -188,8 +188,8 @@ class TestScoringEngine:
     def test_complete_bullish_setup_above_70(self, engine):
         """A textbook bullish setup should score 70+."""
         indicators = TechnicalIndicators(
-            sma_50=95.0,       # Price 5% above
-            ema_20=98.0,       # Price 2% above
+            sma_50=95.0,  # Price 5% above
+            ema_20=98.0,  # Price 2% above
             ema_9=99.0,
             macd_line=1.5,
             macd_signal=0.5,
@@ -198,7 +198,7 @@ class TestScoringEngine:
             relative_strength=4.0,
             rsi_14=58.0,
             roc_10=3.0,
-            proximity_to_20d_high=97.0
+            proximity_to_20d_high=97.0,
         )
         score, signals = engine.calculate_score(100.0, 1300000.0, indicators)
         assert score >= 70, f"Expected >=70, got {score}"
@@ -206,8 +206,8 @@ class TestScoringEngine:
     def test_mediocre_setup_scores_40_60(self, engine):
         """A mixed setup (some bullish, some not) should score 40-60."""
         indicators = TechnicalIndicators(
-            sma_50=100.0,      # Price at SMA (gradient gives partial)
-            ema_20=101.0,      # Price slightly below EMA
+            sma_50=100.0,  # Price at SMA (gradient gives partial)
+            ema_20=101.0,  # Price slightly below EMA
             ema_9=101.5,
             macd_line=0.2,
             macd_signal=0.1,
@@ -216,7 +216,7 @@ class TestScoringEngine:
             relative_strength=0.5,
             rsi_14=50.0,
             roc_10=1.0,
-            proximity_to_20d_high=93.0
+            proximity_to_20d_high=93.0,
         )
         score, _ = engine.calculate_score(100.0, 900000.0, indicators)
         assert 35 <= score <= 70, f"Expected 35-70, got {score}"
@@ -225,15 +225,23 @@ class TestScoringEngine:
         """Stronger signals should always produce higher scores."""
         # Weak setup
         weak = TechnicalIndicators(
-            sma_50=100.0, ema_20=100.0, rsi_14=45.0, roc_10=0.5,
-            relative_strength=0.5, avg_volume_20=1000000.0,
-            proximity_to_20d_high=90.0
+            sma_50=100.0,
+            ema_20=100.0,
+            rsi_14=45.0,
+            roc_10=0.5,
+            relative_strength=0.5,
+            avg_volume_20=1000000.0,
+            proximity_to_20d_high=90.0,
         )
         # Strong setup
         strong = TechnicalIndicators(
-            sma_50=90.0, ema_20=95.0, rsi_14=62.0, roc_10=6.0,
-            relative_strength=7.0, avg_volume_20=1000000.0,
-            proximity_to_20d_high=99.0
+            sma_50=90.0,
+            ema_20=95.0,
+            rsi_14=62.0,
+            roc_10=6.0,
+            relative_strength=7.0,
+            avg_volume_20=1000000.0,
+            proximity_to_20d_high=99.0,
         )
         score_weak, _ = engine.calculate_score(100.0, 900000.0, weak)
         score_strong, _ = engine.calculate_score(105.0, 1600000.0, strong)
@@ -244,15 +252,16 @@ class TestScoringEngine:
 # V3 Phase 2: Hard filters (R2), recovery removal (R3), extension penalty (R4)
 # ============================================================================
 
+
 def _passing_hard_filter_indicators():
     """TechnicalIndicators that PASS all six Minervini hard filters at price=120."""
     return TechnicalIndicators(
-        sma_50=110.0,        # > sma_200 (H4)
-        sma_150=105.0,       # price 120 > 105 (H3)
-        sma_200=100.0,       # price 120 > 100 (H1)
-        sma_200_slope=2.0,   # rising (H2)
-        week52_high=130.0,   # 120 >= 0.75*130 = 97.5 (H6)
-        week52_low=80.0,     # 120 >= 1.30*80 = 104 (H5)
+        sma_50=110.0,  # > sma_200 (H4)
+        sma_150=105.0,  # price 120 > 105 (H3)
+        sma_200=100.0,  # price 120 > 100 (H1)
+        sma_200_slope=2.0,  # rising (H2)
+        week52_high=130.0,  # 120 >= 0.75*130 = 97.5 (H6)
+        week52_low=80.0,  # 120 >= 1.30*80 = 104 (H5)
     )
 
 
@@ -264,13 +273,16 @@ class TestHardFilters:
         assert ok is True
         assert all(checks.values())
 
-    @pytest.mark.parametrize("field,value,failed_key", [
-        ("sma_200", 130.0, "H1"),     # price 120 < sma_200 130 → H1 fail (also H4)
-        ("sma_200_slope", -1.0, "H2"),  # falling → H2 fail
-        ("sma_150", 125.0, "H3"),     # price 120 < sma_150 125 → H3 fail
-        ("week52_low", 100.0, "H5"),  # 1.30*100=130 > 120 → H5 fail
-        ("week52_high", 200.0, "H6"), # 0.75*200=150 > 120 → H6 fail
-    ])
+    @pytest.mark.parametrize(
+        "field,value,failed_key",
+        [
+            ("sma_200", 130.0, "H1"),  # price 120 < sma_200 130 → H1 fail (also H4)
+            ("sma_200_slope", -1.0, "H2"),  # falling → H2 fail
+            ("sma_150", 125.0, "H3"),  # price 120 < sma_150 125 → H3 fail
+            ("week52_low", 100.0, "H5"),  # 1.30*100=130 > 120 → H5 fail
+            ("week52_high", 200.0, "H6"),  # 0.75*200=150 > 120 → H6 fail
+        ],
+    )
     def test_single_check_failure(self, engine, field, value, failed_key):
         ind = _passing_hard_filter_indicators()
         setattr(ind, field, value)
@@ -285,10 +297,16 @@ class TestHardFilters:
         assert ok is False
         assert checks["H4"] is False
 
-    @pytest.mark.parametrize("field,check", [
-        ("sma_200", "H1"), ("sma_200_slope", "H2"), ("sma_150", "H3"),
-        ("week52_low", "H5"), ("week52_high", "H6"),
-    ])
+    @pytest.mark.parametrize(
+        "field,check",
+        [
+            ("sma_200", "H1"),
+            ("sma_200_slope", "H2"),
+            ("sma_150", "H3"),
+            ("week52_low", "H5"),
+            ("week52_high", "H6"),
+        ],
+    )
     def test_none_indicator_fails_its_check(self, engine, field, check):
         ind = _passing_hard_filter_indicators()
         setattr(ind, field, None)
@@ -299,19 +317,19 @@ class TestHardFilters:
     def test_strict_boundary_equality_fails(self, engine):
         """H1/H2/H4 are strict (>): equality must FAIL."""
         ind = _passing_hard_filter_indicators()
-        ind.sma_200 = self.PRICE        # price == sma_200 → H1 fail
+        ind.sma_200 = self.PRICE  # price == sma_200 → H1 fail
         assert engine.passes_hard_filters(self.PRICE, ind)[1]["H1"] is False
         ind = _passing_hard_filter_indicators()
-        ind.sma_200_slope = 0.0          # slope == 0 → H2 fail
+        ind.sma_200_slope = 0.0  # slope == 0 → H2 fail
         assert engine.passes_hard_filters(self.PRICE, ind)[1]["H2"] is False
         ind = _passing_hard_filter_indicators()
-        ind.sma_50 = ind.sma_200         # sma_50 == sma_200 → H4 fail
+        ind.sma_50 = ind.sma_200  # sma_50 == sma_200 → H4 fail
         assert engine.passes_hard_filters(self.PRICE, ind)[1]["H4"] is False
 
     def test_inclusive_boundary_equality_passes(self, engine):
         """H5/H6 are inclusive (>=): equality must PASS."""
         ind = _passing_hard_filter_indicators()
-        ind.week52_low = self.PRICE / 1.30   # price == 1.30*low → H5 pass
+        ind.week52_low = self.PRICE / 1.30  # price == 1.30*low → H5 pass
         assert engine.passes_hard_filters(self.PRICE, ind)[1]["H5"] is True
         ind = _passing_hard_filter_indicators()
         ind.week52_high = self.PRICE / 0.75  # price == 0.75*high → H6 pass
@@ -322,9 +340,16 @@ class TestRecoveryBonusRemoved:
     def test_below_ma_oversold_scores_low(self, engine):
         """A below-MA oversold stock no longer gets a recovery bump (R3)."""
         ind = TechnicalIndicators(
-            sma_50=120.0, ema_20=118.0, rsi_14=35.0, roc_10=3.0,
-            macd_line=-0.5, macd_signal=-0.2, macd_histogram=-0.3,
-            avg_volume_20=1_000_000.0, relative_strength=-3.0, proximity_to_20d_high=85.0,
+            sma_50=120.0,
+            ema_20=118.0,
+            rsi_14=35.0,
+            roc_10=3.0,
+            macd_line=-0.5,
+            macd_signal=-0.2,
+            macd_histogram=-0.3,
+            avg_volume_20=1_000_000.0,
+            relative_strength=-3.0,
+            proximity_to_20d_high=85.0,
         )
         score, _ = engine.calculate_score(100.0, 1_000_000.0, ind)  # price well below sma_50
         assert score < 40  # would have been boosted ~15-25 under V2 recovery bonus
@@ -335,7 +360,9 @@ class TestExtensionPenalty:
         """Indicators with price `dist_pct`% above SMA50 (price fixed at 100)."""
         sma_50 = 100.0 / (1 + dist_pct / 100.0)
         return TechnicalIndicators(
-            sma_50=sma_50, rsi_14=rsi, roc_10=roc,
+            sma_50=sma_50,
+            rsi_14=rsi,
+            roc_10=roc,
         )
 
     def _penalty(self, engine, ind, price=100.0):
@@ -368,12 +395,19 @@ class TestExtensionPenalty:
 # V3 Phase 3: RS percentile (R5) and indicator divergence penalty (R6)
 # ============================================================================
 
+
 class TestRSPercentile:
     def _base(self):
         return TechnicalIndicators(
-            sma_50=95.0, ema_20=98.0, rsi_14=60.0, roc_10=3.0,
-            macd_line=1.0, macd_signal=0.5, macd_histogram=0.5,
-            avg_volume_20=1_000_000.0, relative_strength=2.0,
+            sma_50=95.0,
+            ema_20=98.0,
+            rsi_14=60.0,
+            roc_10=3.0,
+            macd_line=1.0,
+            macd_signal=0.5,
+            macd_histogram=0.5,
+            avg_volume_20=1_000_000.0,
+            relative_strength=2.0,
             proximity_to_20d_high=96.0,
         )
 
@@ -389,9 +423,9 @@ class TestRSPercentile:
         s50, _ = engine.calculate_score(100.0, 1_500_000.0, self._base(), rs_percentile=50)
         s70, _ = engine.calculate_score(100.0, 1_500_000.0, self._base(), rs_percentile=70)
         s90, _ = engine.calculate_score(100.0, 1_500_000.0, self._base(), rs_percentile=90)
-        assert s50 > s49      # crossing the 50th tier adds points
-        assert s70 > s50      # 70th tier adds more
-        assert s90 > s70      # 90th tier adds the most
+        assert s50 > s49  # crossing the 50th tier adds points
+        assert s70 > s50  # 70th tier adds more
+        assert s90 > s70  # 90th tier adds the most
 
     def test_none_percentile_falls_back_to_raw_rs(self, engine):
         # No crash, returns a valid score when rs_percentile is omitted
@@ -403,8 +437,11 @@ class TestDivergencePenalty:
     def _ind(self, rsi, macd_above, roc, price_above_sma):
         sma = 90.0 if price_above_sma else 110.0  # price fixed at 100
         return TechnicalIndicators(
-            sma_50=sma, rsi_14=rsi, roc_10=roc,
-            macd_line=(1.0 if macd_above else -1.0), macd_signal=0.0,
+            sma_50=sma,
+            rsi_14=rsi,
+            roc_10=roc,
+            macd_line=(1.0 if macd_above else -1.0),
+            macd_signal=0.0,
         )
 
     def test_four_zero_agreement_no_penalty(self):
@@ -430,7 +467,9 @@ class TestDivergencePenalty:
 
     def test_none_aware_denominator(self):
         """3 available signals, 2 bull / 1 bear → agreement 0.667 → -4."""
-        ind = TechnicalIndicators(rsi_14=60.0, roc_10=2.0, sma_50=110.0)  # rsi bull, roc bull, price<sma bear
+        ind = TechnicalIndicators(
+            rsi_14=60.0, roc_10=2.0, sma_50=110.0
+        )  # rsi bull, roc bull, price<sma bear
         assert ScoringEngine.divergence_penalty(100.0, ind) == 4
 
     def test_no_typeerror_with_all_none(self):

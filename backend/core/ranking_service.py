@@ -4,14 +4,14 @@ Ranking Service
 Ranks tickers by bullish score in descending order.
 """
 
-from typing import List
+
 from api.models import TickerScore
 
 
 class RankingService:
     """Ranks tickers by bullish score."""
 
-    def rank_tickers(self, scored_tickers: List[TickerScore]) -> List[TickerScore]:
+    def rank_tickers(self, scored_tickers: list[TickerScore]) -> list[TickerScore]:
         """
         Sort tickers by score in descending order.
 

@@ -12,10 +12,10 @@ Stage 2 requires ALL:
 - close >= 0.75 × 52-week high (within 25% of high)
 """
 
-import numpy as np
-from typing import Optional
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StageResult:
     """Result of stage classification."""
+
     stage: int  # 1, 2, 3, or 4
     is_stage_2: bool
     checks_passed: int  # out of 5
@@ -39,11 +40,11 @@ class StageClassifier:
     ) -> StageResult:
         """
         Classify the stock's current stage.
-        
+
         Args:
             prices: Historical closing prices (at least 252 bars)
             current_price: Most recent close
-            
+
         Returns:
             StageResult with stage number and details
         """
@@ -52,8 +53,12 @@ class StageClassifier:
 
         # Need at least 252 bars for 52-week analysis
         if len(prices) < 252:
-            return StageResult(stage=0, is_stage_2=False, checks_passed=0,
-                             details={"error": "Insufficient data (need 252 bars)"})
+            return StageResult(
+                stage=0,
+                is_stage_2=False,
+                checks_passed=0,
+                details={"error": "Insufficient data (need 252 bars)"},
+            )
 
         # Calculate SMAs
         sma_50 = float(np.mean(prices[-50:]))
@@ -124,8 +129,5 @@ class StageClassifier:
         details["low_52w"] = round(low_52w, 2)
 
         return StageResult(
-            stage=stage,
-            is_stage_2=is_stage_2,
-            checks_passed=checks_passed,
-            details=details
+            stage=stage, is_stage_2=is_stage_2, checks_passed=checks_passed, details=details
         )

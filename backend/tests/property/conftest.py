@@ -7,7 +7,7 @@ underlying calculations are correct, so we suppress that (and the slow-data) hea
 check and drop the per-example deadline for these data-heavy numeric tests.
 """
 
-from hypothesis import settings, HealthCheck
+from hypothesis import HealthCheck, settings
 
 settings.register_profile(
     "v3",

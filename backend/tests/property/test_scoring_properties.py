@@ -12,11 +12,11 @@ Correctness Properties from the spec:
 """
 
 import pytest
-from hypothesis import given, strategies as st, settings
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
-from core.scoring_engine import ScoringEngine
 from core.models import TechnicalIndicators
-
+from core.scoring_engine import ScoringEngine
 
 engine = ScoringEngine()
 
@@ -41,8 +41,12 @@ class TestHardFilterProperty:
         self, price, sma_200, slope, sma_150, sma_50, wk_low, wk_high
     ):
         ind = TechnicalIndicators(
-            sma_50=sma_50, sma_150=sma_150, sma_200=sma_200,
-            sma_200_slope=slope, week52_low=wk_low, week52_high=wk_high,
+            sma_50=sma_50,
+            sma_150=sma_150,
+            sma_200=sma_200,
+            sma_200_slope=slope,
+            week52_low=wk_low,
+            week52_high=wk_high,
         )
         ok, checks = engine.passes_hard_filters(price, ind)
         assert ok == all(checks.values())
@@ -50,11 +54,17 @@ class TestHardFilterProperty:
         assert checks["H2"] == (slope > 0)
         assert checks["H4"] == (sma_50 > sma_200)
 
-    @pytest.mark.parametrize("missing", ["sma_200", "sma_200_slope", "sma_150", "week52_low", "week52_high"])
+    @pytest.mark.parametrize(
+        "missing", ["sma_200", "sma_200_slope", "sma_150", "week52_low", "week52_high"]
+    )
     def test_missing_indicator_fails(self, missing):
         ind = TechnicalIndicators(
-            sma_50=110, sma_150=105, sma_200=100, sma_200_slope=1.0,
-            week52_low=80, week52_high=130,
+            sma_50=110,
+            sma_150=105,
+            sma_200=100,
+            sma_200_slope=1.0,
+            week52_low=80,
+            week52_high=130,
         )
         setattr(ind, missing, None)
         ok, _ = engine.passes_hard_filters(120.0, ind)
@@ -80,11 +90,17 @@ class TestScoreBoundsProperty:
         rs=st.one_of(st.none(), st.floats(min_value=-20, max_value=20)),
         pct=st.one_of(st.none(), st.floats(min_value=0, max_value=100)),
     )
-    def test_score_bounded(self, price, volume, sma_50, ema_20, rsi, roc,
-                           macd_line, macd_signal, rs, pct):
+    def test_score_bounded(
+        self, price, volume, sma_50, ema_20, rsi, roc, macd_line, macd_signal, rs, pct
+    ):
         ind = TechnicalIndicators(
-            sma_50=sma_50, ema_20=ema_20, rsi_14=rsi, roc_10=roc,
-            macd_line=macd_line, macd_signal=macd_signal, relative_strength=rs,
+            sma_50=sma_50,
+            ema_20=ema_20,
+            rsi_14=rsi,
+            roc_10=roc,
+            macd_line=macd_line,
+            macd_signal=macd_signal,
+            relative_strength=rs,
             avg_volume_20=1_000_000.0,
         )
         score, _ = engine.calculate_score(price, volume, ind, rs_percentile=pct)
@@ -107,9 +123,15 @@ class TestRSPercentileMonotonic:
     def test_monotonic(self, a, b):
         lo, hi = min(a, b), max(a, b)
         ind = TechnicalIndicators(
-            sma_50=95.0, ema_20=98.0, rsi_14=60.0, roc_10=3.0,
-            macd_line=1.0, macd_signal=0.5, avg_volume_20=1_000_000.0,
-            relative_strength=2.0, proximity_to_20d_high=96.0,
+            sma_50=95.0,
+            ema_20=98.0,
+            rsi_14=60.0,
+            roc_10=3.0,
+            macd_line=1.0,
+            macd_signal=0.5,
+            avg_volume_20=1_000_000.0,
+            relative_strength=2.0,
+            proximity_to_20d_high=96.0,
         )
         s_lo, _ = engine.calculate_score(100.0, 1_500_000.0, ind, rs_percentile=lo)
         s_hi, _ = engine.calculate_score(100.0, 1_500_000.0, ind, rs_percentile=hi)

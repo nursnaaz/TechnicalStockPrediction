@@ -5,15 +5,16 @@ Tests the SPY 200-day SMA gate with 5-day persistence, the RegimeResult contract
 (regime / threshold / emit_signals), and error handling.
 """
 
-import pytest
-import numpy as np
 from unittest.mock import AsyncMock
 
+import numpy as np
+import pytest
+
 from api.models import MarketRegime
-from core.regime_analyzer import MarketRegimeAnalyzer, RegimeResult
-from core.api_client import RestApiClient, ApiError
-from core.models import StockData
 from config import config
+from core.api_client import ApiError, RestApiClient
+from core.models import StockData
+from core.regime_analyzer import MarketRegimeAnalyzer, RegimeResult
 
 
 @pytest.fixture

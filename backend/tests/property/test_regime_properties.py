@@ -10,21 +10,25 @@ SPY vs SMA200 with 5-day persistence → RegimeResult(regime, threshold, emit_si
 """
 
 import asyncio
-import numpy as np
 from unittest.mock import AsyncMock
-from hypothesis import given, strategies as st, settings
+
+import numpy as np
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from api.models import MarketRegime
-from core.regime_analyzer import MarketRegimeAnalyzer, RegimeResult
-from core.models import StockData
 from config import config
+from core.models import StockData
+from core.regime_analyzer import MarketRegimeAnalyzer, RegimeResult
 
 
 def _spy(last5, base=100.0, n=260):
     prices = np.concatenate([np.full(n - 5, base), np.array(last5, dtype=float)])
     return StockData(
-        ticker="SPY", prices=prices,
-        volumes=np.full(n, 1e6), timestamps=np.arange(n, dtype=np.int64),
+        ticker="SPY",
+        prices=prices,
+        volumes=np.full(n, 1e6),
+        timestamps=np.arange(n, dtype=np.int64),
     )
 
 

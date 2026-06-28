@@ -4,30 +4,28 @@ Unit Tests for Scan Orchestrator
 Tests pipeline execution, error handling, and response formatting.
 """
 
-import pytest
-from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
-import numpy as np
+from unittest.mock import AsyncMock, Mock
 
-from core.orchestrator import ScanOrchestrator, ScanError
-from core.api_client import RestApiClient, ApiError
-from core.universe_builder import UniverseBuilder
+import numpy as np
+import pytest
+
+from core.api_client import ApiError, RestApiClient
+from core.orchestrator import ScanError, ScanOrchestrator
 from core.regime_analyzer import MarketRegimeAnalyzer, RegimeResult
+from core.universe_builder import UniverseBuilder
 
 
 def _regime(regime, threshold=65, emit=True):
     """Helper: wrap a MarketRegime in the V3 RegimeResult contract."""
     return RegimeResult(regime=regime, threshold=threshold, emit_signals=emit)
+
+
+from api.models import IndicatorSignals, MarketRegime, ScanRequest
 from core.indicator_calculator import IndicatorCalculator
-from core.scoring_engine import ScoringEngine
-from core.ranking_service import RankingService
-from api.models import (
-    ScanRequest,
-    MarketRegime,
-    IndicatorSignals,
-    TickerScore
-)
 from core.models import StockData, TechnicalIndicators
+from core.ranking_service import RankingService
+from core.scoring_engine import ScoringEngine
 
 
 @pytest.fixture
@@ -89,7 +87,7 @@ def orchestrator(
     mock_regime_analyzer,
     mock_indicator_calc,
     mock_scoring_engine,
-    mock_ranking_service
+    mock_ranking_service,
 ):
     """Create orchestrator with all mocked dependencies."""
     return ScanOrchestrator(
@@ -98,7 +96,7 @@ def orchestrator(
         regime_analyzer=mock_regime_analyzer,
         indicator_calc=mock_indicator_calc,
         scoring_engine=mock_scoring_engine,
-        ranking_service=mock_ranking_service
+        ranking_service=mock_ranking_service,
     )
 
 
@@ -109,7 +107,7 @@ def sample_stock_data():
         ticker="AAPL",
         prices=np.array([100.0, 101.0, 102.0] * 100),  # 300 days
         volumes=np.array([1000000.0, 1100000.0, 1200000.0] * 100),
-        timestamps=np.array([1640000000, 1640086400, 1640172800] * 100)
+        timestamps=np.array([1640000000, 1640086400, 1640172800] * 100),
     )
 
 
@@ -123,13 +121,13 @@ def sample_indicators():
         macd_signal=0.3,
         macd_histogram=0.2,
         avg_volume_20=1000000.0,
-        relative_strength=2.5
+        relative_strength=2.5,
     )
 
 
 class TestOrchestratorInitialization:
     """Test orchestrator initialization."""
-    
+
     def test_initialization_success(self, orchestrator):
         """Test successful initialization with all dependencies."""
         assert orchestrator.api_client is not None
@@ -142,7 +140,7 @@ class TestOrchestratorInitialization:
 
 class TestExecuteScan:
     """Test execute_scan method."""
-    
+
     @pytest.mark.asyncio
     async def test_successful_scan_single_ticker(
         self,
@@ -154,7 +152,7 @@ class TestExecuteScan:
         mock_scoring_engine,
         mock_ranking_service,
         sample_stock_data,
-        sample_indicators
+        sample_indicators,
     ):
         """Test successful scan with single ticker."""
         # Setup mocks
@@ -162,52 +160,54 @@ class TestExecuteScan:
         mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, 65)
         mock_api_client.fetch_stock_data.return_value = sample_stock_data
         mock_indicator_calc.calculate_all.return_value = sample_indicators
-        
+
         signals = IndicatorSignals(
             price_above_sma50=True,
             price_above_ema20=True,
             macd_above_signal=True,
             macd_histogram_positive=True,
             volume_above_average=False,
-            relative_strength_positive=True
+            relative_strength_positive=True,
         )
         mock_scoring_engine.calculate_enhanced_score.return_value = (85, signals, Mock(), Mock())
-        
+
         # Mock ranking service to return input as-is
         mock_ranking_service.rank_tickers.side_effect = lambda x: x
-        
+
         # Execute scan
         request = ScanRequest(tickers=["AAPL"])
         response = await orchestrator.execute_scan(request)
-        
+
         # Verify cache was cleared
         mock_api_client.clear_cache.assert_called_once()
-        
+
         # Verify universe was built
         mock_universe_builder.build_universe.assert_called_once_with(["AAPL"])
-        
+
         # Verify regime was analyzed
         mock_regime_analyzer.analyze_regime.assert_called_once()
-        
+
         # Verify market data was fetched (SPY)
-        spy_call = [call for call in mock_api_client.fetch_stock_data.call_args_list 
-                    if call[0][0] == "SPY"]
+        spy_call = [
+            call for call in mock_api_client.fetch_stock_data.call_args_list if call[0][0] == "SPY"
+        ]
         assert len(spy_call) == 1
-        
+
         # Verify ticker data was fetched
-        aapl_call = [call for call in mock_api_client.fetch_stock_data.call_args_list 
-                     if call[0][0] == "AAPL"]
+        aapl_call = [
+            call for call in mock_api_client.fetch_stock_data.call_args_list if call[0][0] == "AAPL"
+        ]
         assert len(aapl_call) == 1
-        
+
         # Verify indicators were calculated
         mock_indicator_calc.calculate_all.assert_called_once()
-        
+
         # Verify score was calculated
         mock_scoring_engine.calculate_enhanced_score.assert_called_once()
-        
+
         # Verify ranking was performed
         mock_ranking_service.rank_tickers.assert_called_once()
-        
+
         # Verify response structure
         assert response.scan_id is not None
         assert len(response.scan_id) == 36  # UUID format
@@ -217,7 +217,7 @@ class TestExecuteScan:
         assert response.ranked_tickers[0].bullish_score == 85
         assert response.metadata.ticker_count == 1
         assert response.metadata.duration_seconds >= 0
-    
+
     @pytest.mark.asyncio
     async def test_successful_scan_multiple_tickers(
         self,
@@ -229,7 +229,7 @@ class TestExecuteScan:
         mock_scoring_engine,
         mock_ranking_service,
         sample_stock_data,
-        sample_indicators
+        sample_indicators,
     ):
         """Test successful scan with multiple tickers."""
         # Setup mocks
@@ -238,46 +238,42 @@ class TestExecuteScan:
         mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.NEUTRAL, 75)
         mock_api_client.fetch_stock_data.return_value = sample_stock_data
         mock_indicator_calc.calculate_all.return_value = sample_indicators
-        
+
         signals = IndicatorSignals(
             price_above_sma50=True,
             price_above_ema20=True,
             macd_above_signal=True,
             macd_histogram_positive=True,
             volume_above_average=True,
-            relative_strength_positive=True
+            relative_strength_positive=True,
         )
         mock_scoring_engine.calculate_enhanced_score.return_value = (100, signals, Mock(), Mock())
-        
+
         # Mock ranking service to return sorted by score
         mock_ranking_service.rank_tickers.side_effect = lambda x: sorted(
             x, key=lambda t: t.bullish_score, reverse=True
         )
-        
+
         # Execute scan
         request = ScanRequest(tickers=tickers)
         response = await orchestrator.execute_scan(request)
-        
+
         # Verify all tickers were processed
         assert len(response.ranked_tickers) == 3
         assert response.metadata.ticker_count == 3
         assert {t.ticker for t in response.ranked_tickers} == set(tickers)
-    
+
     @pytest.mark.asyncio
-    async def test_scan_with_invalid_universe(
-        self,
-        orchestrator,
-        mock_universe_builder
-    ):
+    async def test_scan_with_invalid_universe(self, orchestrator, mock_universe_builder):
         """Test scan fails when universe building fails."""
         # Setup mock to raise ValueError
         mock_universe_builder.build_universe.side_effect = ValueError("All tickers are invalid")
-        
+
         # Execute scan and expect ScanError
         request = ScanRequest(tickers=["!!!"])
         with pytest.raises(ScanError, match="Invalid ticker list"):
             await orchestrator.execute_scan(request)
-    
+
     @pytest.mark.asyncio
     async def test_scan_handles_single_ticker_failure(
         self,
@@ -289,55 +285,51 @@ class TestExecuteScan:
         mock_scoring_engine,
         mock_ranking_service,
         sample_stock_data,
-        sample_indicators
+        sample_indicators,
     ):
         """Test scan continues when single ticker fails."""
         # Setup mocks
         tickers = ["AAPL", "INVALID", "GOOGL"]
         mock_universe_builder.build_universe.return_value = tickers
         mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, 65)
-        
+
         # Make INVALID ticker fail
         def fetch_side_effect(ticker, days=250, as_of_date=None):
             if ticker == "INVALID":
                 raise ApiError(f"Failed to fetch {ticker}")
             return sample_stock_data
-        
+
         mock_api_client.fetch_stock_data.side_effect = fetch_side_effect
         mock_indicator_calc.calculate_all.return_value = sample_indicators
-        
+
         signals = IndicatorSignals(
             price_above_sma50=True,
             price_above_ema20=True,
             macd_above_signal=True,
             macd_histogram_positive=True,
             volume_above_average=False,
-            relative_strength_positive=True
+            relative_strength_positive=True,
         )
         mock_scoring_engine.calculate_enhanced_score.return_value = (85, signals, Mock(), Mock())
         mock_ranking_service.rank_tickers.side_effect = lambda x: x
-        
+
         # Execute scan
         request = ScanRequest(tickers=tickers)
         response = await orchestrator.execute_scan(request)
-        
+
         # Verify only valid tickers were processed
         assert len(response.ranked_tickers) == 2
         assert all(t.ticker != "INVALID" for t in response.ranked_tickers)
-    
+
     @pytest.mark.asyncio
     async def test_scan_fails_when_all_tickers_fail(
-        self,
-        orchestrator,
-        mock_api_client,
-        mock_universe_builder,
-        mock_regime_analyzer
+        self, orchestrator, mock_api_client, mock_universe_builder, mock_regime_analyzer
     ):
         """Test scan fails when all tickers fail to process."""
         # Setup mocks
         mock_universe_builder.build_universe.return_value = ["AAPL", "MSFT"]
         mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, 65)
-        
+
         # Make all ticker fetches fail after SPY succeeds
         def fetch_side_effect(ticker, days=250, as_of_date=None):
             if ticker == "SPY":
@@ -345,38 +337,34 @@ class TestExecuteScan:
                     ticker="SPY",
                     prices=np.array([100.0] * 300),
                     volumes=np.array([1000000.0] * 300),
-                    timestamps=np.array([1640000000] * 300)
+                    timestamps=np.array([1640000000] * 300),
                 )
             raise ApiError(f"Failed to fetch {ticker}")
-        
+
         mock_api_client.fetch_stock_data.side_effect = fetch_side_effect
-        
+
         # Execute scan and expect ScanError
         request = ScanRequest(tickers=["AAPL", "MSFT"])
         with pytest.raises(ScanError, match="All tickers failed to process"):
             await orchestrator.execute_scan(request)
-    
+
     @pytest.mark.asyncio
     async def test_scan_fails_when_market_data_unavailable(
-        self,
-        orchestrator,
-        mock_api_client,
-        mock_universe_builder,
-        mock_regime_analyzer
+        self, orchestrator, mock_api_client, mock_universe_builder, mock_regime_analyzer
     ):
         """Test scan fails when SPY market data cannot be fetched."""
         # Setup mocks
         mock_universe_builder.build_universe.return_value = ["AAPL"]
         mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.NEUTRAL, 75)
-        
+
         # Make SPY fetch fail
         mock_api_client.fetch_stock_data.side_effect = ApiError("Failed to fetch SPY")
-        
+
         # Execute scan and expect ScanError
         request = ScanRequest(tickers=["AAPL"])
         with pytest.raises(ScanError, match="Unable to fetch market data"):
             await orchestrator.execute_scan(request)
-    
+
     @pytest.mark.asyncio
     async def test_scan_generates_unique_scan_id(
         self,
@@ -388,7 +376,7 @@ class TestExecuteScan:
         mock_scoring_engine,
         mock_ranking_service,
         sample_stock_data,
-        sample_indicators
+        sample_indicators,
     ):
         """Test each scan generates a unique UUID."""
         # Setup mocks
@@ -396,28 +384,28 @@ class TestExecuteScan:
         mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, 65)
         mock_api_client.fetch_stock_data.return_value = sample_stock_data
         mock_indicator_calc.calculate_all.return_value = sample_indicators
-        
+
         signals = IndicatorSignals(
             price_above_sma50=True,
             price_above_ema20=True,
             macd_above_signal=True,
             macd_histogram_positive=True,
             volume_above_average=False,
-            relative_strength_positive=True
+            relative_strength_positive=True,
         )
         mock_scoring_engine.calculate_enhanced_score.return_value = (85, signals, Mock(), Mock())
         mock_ranking_service.rank_tickers.side_effect = lambda x: x
-        
+
         # Execute two scans
         request = ScanRequest(tickers=["AAPL"])
         response1 = await orchestrator.execute_scan(request)
         response2 = await orchestrator.execute_scan(request)
-        
+
         # Verify scan IDs are unique
         assert response1.scan_id != response2.scan_id
         assert len(response1.scan_id) == 36
         assert len(response2.scan_id) == 36
-    
+
     @pytest.mark.asyncio
     async def test_scan_metadata_accuracy(
         self,
@@ -429,7 +417,7 @@ class TestExecuteScan:
         mock_scoring_engine,
         mock_ranking_service,
         sample_stock_data,
-        sample_indicators
+        sample_indicators,
     ):
         """Test scan metadata is accurate."""
         # Setup mocks
@@ -438,14 +426,14 @@ class TestExecuteScan:
         mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, 65)
         mock_api_client.fetch_stock_data.return_value = sample_stock_data
         mock_indicator_calc.calculate_all.return_value = sample_indicators
-        
+
         signals = IndicatorSignals(
             price_above_sma50=False,
             price_above_ema20=False,
             macd_above_signal=False,
             macd_histogram_positive=False,
             volume_above_average=False,
-            relative_strength_positive=False
+            relative_strength_positive=False,
         )
         mock_scoring_engine.calculate_enhanced_score.return_value = (80, signals, Mock(), Mock())
         mock_ranking_service.rank_tickers.side_effect = lambda x: x
@@ -459,7 +447,7 @@ class TestExecuteScan:
         assert response.metadata.duration_seconds >= 0
         assert response.metadata.duration_seconds < 10  # Should be fast with mocks
         assert isinstance(response.metadata.timestamp, datetime)
-    
+
     @pytest.mark.asyncio
     async def test_cache_cleared_at_scan_start(
         self,
@@ -471,7 +459,7 @@ class TestExecuteScan:
         mock_scoring_engine,
         mock_ranking_service,
         sample_stock_data,
-        sample_indicators
+        sample_indicators,
     ):
         """Test API cache is cleared at the start of each scan."""
         # Setup mocks
@@ -479,41 +467,37 @@ class TestExecuteScan:
         mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, 65)
         mock_api_client.fetch_stock_data.return_value = sample_stock_data
         mock_indicator_calc.calculate_all.return_value = sample_indicators
-        
+
         signals = IndicatorSignals(
             price_above_sma50=True,
             price_above_ema20=True,
             macd_above_signal=True,
             macd_histogram_positive=True,
             volume_above_average=False,
-            relative_strength_positive=True
+            relative_strength_positive=True,
         )
         mock_scoring_engine.calculate_enhanced_score.return_value = (85, signals, Mock(), Mock())
         mock_ranking_service.rank_tickers.side_effect = lambda x: x
-        
+
         # Execute scan
         request = ScanRequest(tickers=["AAPL"])
         await orchestrator.execute_scan(request)
-        
+
         # Verify cache was cleared before any API calls
         mock_api_client.clear_cache.assert_called_once()
         # clear_cache should be first call before fetch_stock_data
-        assert mock_api_client.method_calls[0][0] == 'clear_cache'
+        assert mock_api_client.method_calls[0][0] == "clear_cache"
 
 
 class TestErrorHandling:
     """Test error handling in orchestrator."""
-    
+
     @pytest.mark.asyncio
-    async def test_unexpected_error_raises_scan_error(
-        self,
-        orchestrator,
-        mock_universe_builder
-    ):
+    async def test_unexpected_error_raises_scan_error(self, orchestrator, mock_universe_builder):
         """Test unexpected errors are wrapped in ScanError."""
         # Setup mock to raise unexpected error
         mock_universe_builder.build_universe.side_effect = RuntimeError("Unexpected error")
-        
+
         # Execute scan and expect ScanError
         request = ScanRequest(tickers=["AAPL"])
         with pytest.raises(ScanError, match="unexpected error"):
@@ -573,7 +557,7 @@ class TestV3RegimeGate:
 
         response = await orchestrator.execute_scan(ScanRequest(tickers=["AAPL"]))
 
-        assert response.ranked_tickers == []          # excluded, valid empty result
+        assert response.ranked_tickers == []  # excluded, valid empty result
         mock_scoring_engine.calculate_enhanced_score.assert_not_called()
 
     @pytest.mark.asyncio
@@ -591,14 +575,25 @@ class TestV3RegimeGate:
     ):
         """A scored ticker below the regime threshold is not a candidate (R7)."""
         mock_universe_builder.build_universe.return_value = ["AAPL"]
-        mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, threshold=65)
+        mock_regime_analyzer.analyze_regime.return_value = _regime(
+            MarketRegime.BULLISH, threshold=65
+        )
         mock_api_client.fetch_stock_data.return_value = sample_stock_data
         mock_indicator_calc.calculate_all.return_value = sample_indicators
         signals = IndicatorSignals(
-            price_above_sma50=True, price_above_ema20=True, macd_above_signal=False,
-            macd_histogram_positive=False, volume_above_average=False, relative_strength_positive=True,
+            price_above_sma50=True,
+            price_above_ema20=True,
+            macd_above_signal=False,
+            macd_histogram_positive=False,
+            volume_above_average=False,
+            relative_strength_positive=True,
         )
-        mock_scoring_engine.calculate_enhanced_score.return_value = (60, signals, Mock(), Mock())  # < 65
+        mock_scoring_engine.calculate_enhanced_score.return_value = (
+            60,
+            signals,
+            Mock(),
+            Mock(),
+        )  # < 65
         mock_ranking_service.rank_tickers.side_effect = lambda x: x
 
         response = await orchestrator.execute_scan(ScanRequest(tickers=["AAPL"]))

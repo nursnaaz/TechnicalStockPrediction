@@ -9,35 +9,34 @@ import logging
 import time
 import uuid
 from datetime import datetime
-from typing import List
 
 from api.models import (
+    IndicatorSignals,
+    ScanMetadata,
     ScanRequest,
     ScanResponse,
     TickerScore,
-    ScanMetadata,
-    MarketRegime,
-    IndicatorSignals,
 )
-from core.api_client import RestApiClient, ApiError
-from core.universe_builder import UniverseBuilder
-from core.regime_analyzer import MarketRegimeAnalyzer
-from core.indicator_calculator import IndicatorCalculator
-from core.scoring_engine import ScoringEngine
-from core.ranking_service import RankingService
 from config import config
+from core.api_client import ApiError, RestApiClient
+from core.indicator_calculator import IndicatorCalculator
+from core.ranking_service import RankingService
+from core.regime_analyzer import MarketRegimeAnalyzer
+from core.scoring_engine import ScoringEngine
+from core.universe_builder import UniverseBuilder
 
 logger = logging.getLogger(__name__)
 
 
 class ScanError(Exception):
     """Exception raised when scan execution fails."""
+
     pass
 
 
 class ScanOrchestrator:
     """Orchestrates the complete scan pipeline."""
-    
+
     def __init__(
         self,
         api_client: RestApiClient,
@@ -45,11 +44,11 @@ class ScanOrchestrator:
         regime_analyzer: MarketRegimeAnalyzer,
         indicator_calc: IndicatorCalculator,
         scoring_engine: ScoringEngine,
-        ranking_service: RankingService
+        ranking_service: RankingService,
     ):
         """
         Initialize with all component dependencies.
-        
+
         Args:
             api_client: REST API client for fetching stock data
             universe_builder: Universe builder for ticker validation
@@ -64,9 +63,9 @@ class ScanOrchestrator:
         self.indicator_calc = indicator_calc
         self.scoring_engine = scoring_engine
         self.ranking_service = ranking_service
-        
+
         logger.info("ScanOrchestrator initialized")
-    
+
     async def execute_scan(
         self,
         request: ScanRequest,
@@ -96,29 +95,29 @@ class ScanOrchestrator:
         5. Rank all scored tickers
         6. Build response with metadata
         7. Return results
-        
+
         Args:
             request: Scan request with ticker list
             as_of_date: Optional cutoff date (YYYY-MM-DD). If provided, the scanner
                         will only use data available up to this date. This prevents
                         look-ahead bias during backtesting.
-            
+
         Returns:
             Complete scan results with UUID scan_id
-            
+
         Raises:
             ScanError: If scan fails critically
         """
         start_time = time.time()
         scan_id = str(uuid.uuid4())
-        
+
         logger.info(f"Starting scan {scan_id} with {len(request.tickers)} tickers")
-        
+
         try:
             # Step 1: Clear API client cache for new scan session
             self.api_client.clear_cache()
             logger.debug("API cache cleared")
-            
+
             # Step 2: Build and validate universe
             try:
                 universe = self.universe_builder.build_universe(request.tickers)
@@ -126,7 +125,7 @@ class ScanOrchestrator:
             except ValueError as e:
                 logger.error(f"Universe building failed: {e}")
                 raise ScanError(f"Invalid ticker list: {e}")
-            
+
             # Step 3: Analyze market regime (V3 gate → RegimeResult)
             regime = await self.regime_analyzer.analyze_regime(as_of_date=as_of_date)
             market_regime = regime.regime
@@ -157,7 +156,7 @@ class ScanOrchestrator:
             except ApiError as e:
                 logger.error(f"Failed to fetch market data: {e}")
                 raise ScanError("Unable to fetch market data for analysis")
-            
+
             # === Step 5 — PASS 1: fetch + indicators + raw RS for every ticker ===
             # (Two-pass: RS percentile needs all tickers' raw RS before any is scored.)
             rows = []  # (ticker, stock_data, indicators, current_price, current_volume)
@@ -188,18 +187,21 @@ class ScanOrchestrator:
             )
             rank_map = (
                 {v: (i / len(rs_values)) * 100 for i, v in enumerate(rs_values)}
-                if rs_values else {}
+                if rs_values
+                else {}
             )
 
             def _rs_pct(rs):
                 return rank_map.get(rs, 0.0)
 
             # === Step 5 — PASS 2: hard-filter gate + scoring with RS percentile ===
-            scored_tickers: List[TickerScore] = []
+            scored_tickers: list[TickerScore] = []
             for ticker, stock_data, indicators, current_price, current_volume in rows:
                 try:
                     # V3 R2: Minervini hard filters — any fail → not a BUY candidate.
-                    passed, _checks = self.scoring_engine.passes_hard_filters(current_price, indicators)
+                    passed, _checks = self.scoring_engine.passes_hard_filters(
+                        current_price, indicators
+                    )
                     if not passed:
                         failed = [k for k, ok in _checks.items() if not ok]
                         logger.info(f"{ticker} excluded by hard filters: failed {failed}")
@@ -207,36 +209,47 @@ class ScanOrchestrator:
                             continue  # production/UI: drop non-candidates entirely
                         # Backtest mode: keep as a score-0 PREDICTED-NEGATIVE so the
                         # confusion matrix covers the FULL universe (FN/TN are real).
-                        scored_tickers.append(TickerScore(
-                            ticker=ticker,
-                            bullish_score=0,
-                            signals=IndicatorSignals(
-                                price_above_sma50=False, price_above_ema20=False,
-                                macd_above_signal=False, macd_histogram_positive=False,
-                                volume_above_average=False, relative_strength_positive=False,
-                            ),
-                            current_price=current_price,
-                            indicators={
-                                "sma_50": indicators.sma_50, "ema_20": indicators.ema_20,
-                                "macd_line": indicators.macd_line, "macd_signal": indicators.macd_signal,
-                                "macd_histogram": indicators.macd_histogram,
-                                "avg_volume_20": indicators.avg_volume_20,
-                                "relative_strength": indicators.relative_strength,
-                            },
-                            passed_hard_filters=False,
-                            is_candidate=False,
-                        ))
+                        scored_tickers.append(
+                            TickerScore(
+                                ticker=ticker,
+                                bullish_score=0,
+                                signals=IndicatorSignals(
+                                    price_above_sma50=False,
+                                    price_above_ema20=False,
+                                    macd_above_signal=False,
+                                    macd_histogram_positive=False,
+                                    volume_above_average=False,
+                                    relative_strength_positive=False,
+                                ),
+                                current_price=current_price,
+                                indicators={
+                                    "sma_50": indicators.sma_50,
+                                    "ema_20": indicators.ema_20,
+                                    "macd_line": indicators.macd_line,
+                                    "macd_signal": indicators.macd_signal,
+                                    "macd_histogram": indicators.macd_histogram,
+                                    "avg_volume_20": indicators.avg_volume_20,
+                                    "relative_strength": indicators.relative_strength,
+                                },
+                                passed_hard_filters=False,
+                                is_candidate=False,
+                            )
+                        )
                         continue
 
-                    bullish_score, signals, stage_result, pattern_result = \
-                        self.scoring_engine.calculate_enhanced_score(
-                            current_price,
-                            current_volume,
-                            indicators,
-                            stock_data.prices,
-                            stock_data.volumes,
-                            rs_percentile=_rs_pct(indicators.relative_strength),
-                        )
+                    (
+                        bullish_score,
+                        signals,
+                        stage_result,
+                        pattern_result,
+                    ) = self.scoring_engine.calculate_enhanced_score(
+                        current_price,
+                        current_volume,
+                        indicators,
+                        stock_data.prices,
+                        stock_data.volumes,
+                        rs_percentile=_rs_pct(indicators.relative_strength),
+                    )
 
                     # V3 R7: BUY only when score clears the regime threshold
                     # (65 BULLISH / 75 NEUTRAL). Below-threshold = not a candidate.
@@ -254,7 +267,7 @@ class ScanOrchestrator:
                         "macd_signal": indicators.macd_signal,
                         "macd_histogram": indicators.macd_histogram,
                         "avg_volume_20": indicators.avg_volume_20,
-                        "relative_strength": indicators.relative_strength
+                        "relative_strength": indicators.relative_strength,
                     }
 
                     ticker_score = TickerScore(
@@ -279,23 +292,25 @@ class ScanOrchestrator:
             # returns an empty ranked list (HTTP 200), not a 500.
             if not scored_tickers and fetch_error_count == len(universe):
                 logger.error("All tickers failed to fetch/process")
-                raise ScanError("All tickers failed to process. Please check ticker symbols and try again.")
+                raise ScanError(
+                    "All tickers failed to process. Please check ticker symbols and try again."
+                )
             if not scored_tickers:
                 logger.info("No tickers qualified after filtering — returning empty candidate list")
-            
+
             # Step 6: Rank tickers
             ranked_tickers = self.ranking_service.rank_tickers(scored_tickers)
             logger.info(f"Ranked {len(ranked_tickers)} tickers")
-            
+
             # Step 7: Build response with metadata
             duration = time.time() - start_time
-            
+
             metadata = ScanMetadata(
                 timestamp=datetime.utcnow(),
                 ticker_count=len(ranked_tickers),
-                duration_seconds=round(duration, 2)
+                duration_seconds=round(duration, 2),
             )
-            
+
             response = ScanResponse(
                 scan_id=scan_id,
                 market_regime=market_regime,
@@ -303,18 +318,18 @@ class ScanOrchestrator:
                 metadata=metadata,
                 score_threshold=regime.threshold,
             )
-            
+
             logger.info(
                 f"Scan {scan_id} completed in {duration:.2f}s: "
                 f"{len(ranked_tickers)} tickers processed, "
                 f"market regime: {market_regime.value}"
             )
-            
+
             return response
-            
+
         except ScanError:
             # Re-raise ScanError as-is
             raise
         except Exception as e:
             logger.error(f"Critical error during scan execution: {e}", exc_info=True)
-            raise ScanError(f"Scan failed due to unexpected error: {str(e)}")
+            raise ScanError(f"Scan failed due to unexpected error: {e!s}")

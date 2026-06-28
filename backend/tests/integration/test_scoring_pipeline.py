@@ -6,13 +6,13 @@ Tests the complete flow: Indicator Calculator → Scoring Engine → Ranking Ser
 Requirements: 4.7, 5.10, 6.4
 """
 
-import pytest
 import numpy as np
-from core.indicator_calculator import IndicatorCalculator
-from core.scoring_engine import ScoringEngine
-from core.ranking_service import RankingService
-from core.models import StockData
+
 from api.models import TickerScore
+from core.indicator_calculator import IndicatorCalculator
+from core.models import StockData
+from core.ranking_service import RankingService
+from core.scoring_engine import ScoringEngine
 
 
 class TestScoringPipeline:
@@ -21,7 +21,7 @@ class TestScoringPipeline:
     def test_complete_flow_with_valid_indicators(self):
         """
         Test complete pipeline flow: calculate indicators → score → rank.
-        
+
         Requirements:
         - 4.7: Indicator Calculator returns all calculated indicators for each ticker
         - 5.10: Scoring Engine returns Bullish_Score and contributing indicator signals
@@ -34,47 +34,49 @@ class TestScoringPipeline:
 
         # Create synthetic stock data with clear bullish signals
         # Stock 1: Strong bullish (should score ~85-100)
-        prices_bullish = np.concatenate([
-            np.linspace(100, 150, 30),  # Uptrend
-            np.linspace(150, 180, 20)
-        ])
-        volumes_bullish = np.concatenate([
-            np.full(30, 1_000_000),
-            np.full(20, 1_500_000)  # Volume surge
-        ])
+        prices_bullish = np.concatenate(
+            [
+                np.linspace(100, 150, 30),  # Uptrend
+                np.linspace(150, 180, 20),
+            ]
+        )
+        volumes_bullish = np.concatenate(
+            [
+                np.full(30, 1_000_000),
+                np.full(20, 1_500_000),  # Volume surge
+            ]
+        )
         stock1 = StockData(
-            ticker="BULL",
-            prices=prices_bullish,
-            volumes=volumes_bullish,
-            timestamps=np.arange(50)
+            ticker="BULL", prices=prices_bullish, volumes=volumes_bullish, timestamps=np.arange(50)
         )
 
         # Stock 2: Moderate bullish — uptrend that has pulled back slightly off its
         # high (NOT at-high/overbought, so it is not a V3 "climax" setup).
-        prices_moderate = np.concatenate([
-            np.linspace(100, 120, 30),
-            np.linspace(120, 126, 12),
-            np.linspace(126, 121, 8),   # mild pullback off the high
-        ])
+        prices_moderate = np.concatenate(
+            [
+                np.linspace(100, 120, 30),
+                np.linspace(120, 126, 12),
+                np.linspace(126, 121, 8),  # mild pullback off the high
+            ]
+        )
         volumes_moderate = np.full(50, 1_000_000)
         stock2 = StockData(
             ticker="MODS",
             prices=prices_moderate,
             volumes=volumes_moderate,
-            timestamps=np.arange(50)
+            timestamps=np.arange(50),
         )
 
         # Stock 3: Bearish (should score low ~0-30)
-        prices_bearish = np.concatenate([
-            np.linspace(150, 100, 30),  # Downtrend
-            np.linspace(100, 90, 20)
-        ])
+        prices_bearish = np.concatenate(
+            [
+                np.linspace(150, 100, 30),  # Downtrend
+                np.linspace(100, 90, 20),
+            ]
+        )
         volumes_bearish = np.full(50, 1_000_000)
         stock3 = StockData(
-            ticker="BEAR",
-            prices=prices_bearish,
-            volumes=volumes_bearish,
-            timestamps=np.arange(50)
+            ticker="BEAR", prices=prices_bearish, volumes=volumes_bearish, timestamps=np.arange(50)
         )
 
         # Market data (moderate performance for relative strength calculation)
@@ -83,7 +85,7 @@ class TestScoringPipeline:
             ticker="SPY",
             prices=market_prices,
             volumes=np.full(50, 10_000_000),
-            timestamps=np.arange(50)
+            timestamps=np.arange(50),
         )
 
         # Step 1: Calculate indicators for all tickers
@@ -134,8 +136,8 @@ class TestScoringPipeline:
                     "macd_signal": indicators1.macd_signal,
                     "macd_histogram": indicators1.macd_histogram,
                     "avg_volume_20": indicators1.avg_volume_20,
-                    "relative_strength": indicators1.relative_strength
-                }
+                    "relative_strength": indicators1.relative_strength,
+                },
             ),
             TickerScore(
                 ticker=stock2.ticker,
@@ -149,8 +151,8 @@ class TestScoringPipeline:
                     "macd_signal": indicators2.macd_signal,
                     "macd_histogram": indicators2.macd_histogram,
                     "avg_volume_20": indicators2.avg_volume_20,
-                    "relative_strength": indicators2.relative_strength
-                }
+                    "relative_strength": indicators2.relative_strength,
+                },
             ),
             TickerScore(
                 ticker=stock3.ticker,
@@ -164,9 +166,9 @@ class TestScoringPipeline:
                     "macd_signal": indicators3.macd_signal,
                     "macd_histogram": indicators3.macd_histogram,
                     "avg_volume_20": indicators3.avg_volume_20,
-                    "relative_strength": indicators3.relative_strength
-                }
-            )
+                    "relative_strength": indicators3.relative_strength,
+                },
+            ),
         ]
 
         # Step 4: Rank tickers
@@ -188,8 +190,8 @@ class TestScoringPipeline:
     def test_mixed_valid_invalid_indicators(self):
         """
         Test pipeline with some indicators unavailable (insufficient data).
-        
-        Requirement 5.10: If any indicator is unavailable, then the Scoring Engine 
+
+        Requirement 5.10: If any indicator is unavailable, then the Scoring Engine
         shall assign 0 points for that indicator and continue scoring with available indicators.
         """
         calculator = IndicatorCalculator()
@@ -201,20 +203,14 @@ class TestScoringPipeline:
         prices_short = np.linspace(100, 110, 25)
         volumes_short = np.full(25, 1_000_000)
         stock_short = StockData(
-            ticker="SHORT",
-            prices=prices_short,
-            volumes=volumes_short,
-            timestamps=np.arange(25)
+            ticker="SHORT", prices=prices_short, volumes=volumes_short, timestamps=np.arange(25)
         )
 
         # Stock with full data
         prices_full = np.linspace(100, 120, 60)
         volumes_full = np.full(60, 1_000_000)
         stock_full = StockData(
-            ticker="FULL",
-            prices=prices_full,
-            volumes=volumes_full,
-            timestamps=np.arange(60)
+            ticker="FULL", prices=prices_full, volumes=volumes_full, timestamps=np.arange(60)
         )
 
         # Market data
@@ -223,7 +219,7 @@ class TestScoringPipeline:
             ticker="SPY",
             prices=market_prices,
             volumes=np.full(60, 10_000_000),
-            timestamps=np.arange(60)
+            timestamps=np.arange(60),
         )
 
         # Calculate indicators
@@ -240,14 +236,10 @@ class TestScoringPipeline:
 
         # Score both tickers
         score_short, signals_short = scorer.calculate_score(
-            stock_short.prices[-1],
-            stock_short.volumes[-1],
-            indicators_short
+            stock_short.prices[-1], stock_short.volumes[-1], indicators_short
         )
         score_full, signals_full = scorer.calculate_score(
-            stock_full.prices[-1],
-            stock_full.volumes[-1],
-            indicators_full
+            stock_full.prices[-1], stock_full.volumes[-1], indicators_full
         )
 
         # Verify scoring works despite missing indicators
@@ -272,8 +264,8 @@ class TestScoringPipeline:
                     "macd_signal": indicators_short.macd_signal,
                     "macd_histogram": indicators_short.macd_histogram,
                     "avg_volume_20": indicators_short.avg_volume_20,
-                    "relative_strength": indicators_short.relative_strength
-                }
+                    "relative_strength": indicators_short.relative_strength,
+                },
             ),
             TickerScore(
                 ticker=stock_full.ticker,
@@ -287,9 +279,9 @@ class TestScoringPipeline:
                     "macd_signal": indicators_full.macd_signal,
                     "macd_histogram": indicators_full.macd_histogram,
                     "avg_volume_20": indicators_full.avg_volume_20,
-                    "relative_strength": indicators_full.relative_strength
-                }
-            )
+                    "relative_strength": indicators_full.relative_strength,
+                },
+            ),
         ]
 
         ranked = ranker.rank_tickers(ticker_scores)
@@ -301,8 +293,8 @@ class TestScoringPipeline:
     def test_ranking_stability_with_tied_scores(self):
         """
         Test ranking preserves original order for tickers with identical scores.
-        
-        Requirement 6.2: When multiple tickers have identical Bullish_Score values, 
+
+        Requirement 6.2: When multiple tickers have identical Bullish_Score values,
         the Ranking Service shall maintain their relative order from the original universe.
         """
         calculator = IndicatorCalculator()
@@ -317,19 +309,19 @@ class TestScoringPipeline:
             ticker="AAA",
             prices=identical_prices.copy(),
             volumes=identical_volumes.copy(),
-            timestamps=np.arange(50)
+            timestamps=np.arange(50),
         )
         stock2 = StockData(
             ticker="BBB",
             prices=identical_prices.copy(),
             volumes=identical_volumes.copy(),
-            timestamps=np.arange(50)
+            timestamps=np.arange(50),
         )
         stock3 = StockData(
             ticker="CCC",
             prices=identical_prices.copy(),
             volumes=identical_volumes.copy(),
-            timestamps=np.arange(50)
+            timestamps=np.arange(50),
         )
 
         # Market data
@@ -338,7 +330,7 @@ class TestScoringPipeline:
             ticker="SPY",
             prices=market_prices,
             volumes=np.full(50, 10_000_000),
-            timestamps=np.arange(50)
+            timestamps=np.arange(50),
         )
 
         # Calculate indicators for all (should be identical)
@@ -367,22 +359,22 @@ class TestScoringPipeline:
                 bullish_score=score1,
                 signals=signals1,
                 current_price=stock1.prices[-1],
-                indicators={"sma_50": indicators1.sma_50}
+                indicators={"sma_50": indicators1.sma_50},
             ),
             TickerScore(
                 ticker="BBB",
                 bullish_score=score2,
                 signals=signals2,
                 current_price=stock2.prices[-1],
-                indicators={"sma_50": indicators2.sma_50}
+                indicators={"sma_50": indicators2.sma_50},
             ),
             TickerScore(
                 ticker="CCC",
                 bullish_score=score3,
                 signals=signals3,
                 current_price=stock3.prices[-1],
-                indicators={"sma_50": indicators3.sma_50}
-            )
+                indicators={"sma_50": indicators3.sma_50},
+            ),
         ]
 
         # Rank tickers
@@ -398,7 +390,7 @@ class TestScoringPipeline:
     def test_ranking_with_mixed_scores_and_ties(self):
         """
         Test ranking with combination of different scores and ties.
-        
+
         Verifies stable sort maintains order within tied groups while sorting overall.
         """
         ranker = RankingService()
@@ -415,7 +407,7 @@ class TestScoringPipeline:
             macd_above_signal=True,
             macd_histogram_positive=True,
             volume_above_average=True,
-            relative_strength_positive=False
+            relative_strength_positive=False,
         )
         signals_mid = IndicatorSignals(
             price_above_sma50=True,
@@ -423,7 +415,7 @@ class TestScoringPipeline:
             macd_above_signal=True,
             macd_histogram_positive=False,
             volume_above_average=False,
-            relative_strength_positive=True
+            relative_strength_positive=True,
         )
         signals_low = IndicatorSignals(
             price_above_sma50=True,
@@ -431,20 +423,45 @@ class TestScoringPipeline:
             macd_above_signal=False,
             macd_histogram_positive=False,
             volume_above_average=False,
-            relative_strength_positive=False
+            relative_strength_positive=False,
         )
 
         ticker_scores = [
-            TickerScore(ticker="FIRST85", bullish_score=85, signals=signals_high,
-                       current_price=100.0, indicators={}),
-            TickerScore(ticker="ONLY70", bullish_score=70, signals=signals_mid,
-                       current_price=100.0, indicators={}),
-            TickerScore(ticker="SECOND85", bullish_score=85, signals=signals_high,
-                       current_price=100.0, indicators={}),
-            TickerScore(ticker="FIRST50", bullish_score=50, signals=signals_low,
-                       current_price=100.0, indicators={}),
-            TickerScore(ticker="SECOND50", bullish_score=50, signals=signals_low,
-                       current_price=100.0, indicators={}),
+            TickerScore(
+                ticker="FIRST85",
+                bullish_score=85,
+                signals=signals_high,
+                current_price=100.0,
+                indicators={},
+            ),
+            TickerScore(
+                ticker="ONLY70",
+                bullish_score=70,
+                signals=signals_mid,
+                current_price=100.0,
+                indicators={},
+            ),
+            TickerScore(
+                ticker="SECOND85",
+                bullish_score=85,
+                signals=signals_high,
+                current_price=100.0,
+                indicators={},
+            ),
+            TickerScore(
+                ticker="FIRST50",
+                bullish_score=50,
+                signals=signals_low,
+                current_price=100.0,
+                indicators={},
+            ),
+            TickerScore(
+                ticker="SECOND50",
+                bullish_score=50,
+                signals=signals_low,
+                current_price=100.0,
+                indicators={},
+            ),
         ]
 
         # Rank

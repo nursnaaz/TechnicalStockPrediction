@@ -5,7 +5,8 @@ Tests the ranking and sorting of tickers by bullish score.
 """
 
 import pytest
-from api.models import TickerScore, IndicatorSignals
+
+from api.models import IndicatorSignals, TickerScore
 from core.ranking_service import RankingService
 
 
@@ -24,7 +25,7 @@ def sample_signals():
         macd_above_signal=True,
         macd_histogram_positive=True,
         volume_above_average=True,
-        relative_strength_positive=True
+        relative_strength_positive=True,
     )
 
 
@@ -38,7 +39,7 @@ def sample_indicators():
         "macd_signal": 1.0,
         "macd_histogram": 0.5,
         "avg_volume_20": 1000000.0,
-        "relative_strength": 2.5
+        "relative_strength": 2.5,
     }
 
 
@@ -54,21 +55,21 @@ class TestRankingService:
                 bullish_score=30,
                 signals=sample_signals,
                 current_price=100.0,
-                indicators=sample_indicators
+                indicators=sample_indicators,
             ),
             TickerScore(
                 ticker="HIGH",
                 bullish_score=90,
                 signals=sample_signals,
                 current_price=150.0,
-                indicators=sample_indicators
+                indicators=sample_indicators,
             ),
             TickerScore(
                 ticker="MID",
                 bullish_score=60,
                 signals=sample_signals,
                 current_price=120.0,
-                indicators=sample_indicators
+                indicators=sample_indicators,
             ),
         ]
 
@@ -92,21 +93,21 @@ class TestRankingService:
                 bullish_score=50,
                 signals=sample_signals,
                 current_price=100.0,
-                indicators=sample_indicators
+                indicators=sample_indicators,
             ),
             TickerScore(
                 ticker="SECOND",
                 bullish_score=50,
                 signals=sample_signals,
                 current_price=105.0,
-                indicators=sample_indicators
+                indicators=sample_indicators,
             ),
             TickerScore(
                 ticker="THIRD",
                 bullish_score=50,
                 signals=sample_signals,
                 current_price=110.0,
-                indicators=sample_indicators
+                indicators=sample_indicators,
             ),
         ]
 
@@ -122,7 +123,9 @@ class TestRankingService:
         assert ranked[1].bullish_score == 50
         assert ranked[2].bullish_score == 50
 
-    def test_all_tickers_included_in_output(self, ranking_service, sample_signals, sample_indicators):
+    def test_all_tickers_included_in_output(
+        self, ranking_service, sample_signals, sample_indicators
+    ):
         """Test that all tickers are included in output (no filtering)."""
         # Create a list of tickers
         tickers = [
@@ -131,7 +134,7 @@ class TestRankingService:
                 bullish_score=i * 10,
                 signals=sample_signals,
                 current_price=100.0 + i,
-                indicators=sample_indicators
+                indicators=sample_indicators,
             )
             for i in range(10)
         ]
@@ -166,7 +169,7 @@ class TestRankingService:
                 bullish_score=75,
                 signals=sample_signals,
                 current_price=100.0,
-                indicators=sample_indicators
+                indicators=sample_indicators,
             )
         ]
 
@@ -182,16 +185,41 @@ class TestRankingService:
         """Test ranking with mixed scores including ties."""
         # Create tickers with some ties
         tickers = [
-            TickerScore(ticker="A", bullish_score=80, signals=sample_signals, 
-                       current_price=100.0, indicators=sample_indicators),
-            TickerScore(ticker="B", bullish_score=60, signals=sample_signals, 
-                       current_price=100.0, indicators=sample_indicators),
-            TickerScore(ticker="C", bullish_score=80, signals=sample_signals, 
-                       current_price=100.0, indicators=sample_indicators),
-            TickerScore(ticker="D", bullish_score=90, signals=sample_signals, 
-                       current_price=100.0, indicators=sample_indicators),
-            TickerScore(ticker="E", bullish_score=60, signals=sample_signals, 
-                       current_price=100.0, indicators=sample_indicators),
+            TickerScore(
+                ticker="A",
+                bullish_score=80,
+                signals=sample_signals,
+                current_price=100.0,
+                indicators=sample_indicators,
+            ),
+            TickerScore(
+                ticker="B",
+                bullish_score=60,
+                signals=sample_signals,
+                current_price=100.0,
+                indicators=sample_indicators,
+            ),
+            TickerScore(
+                ticker="C",
+                bullish_score=80,
+                signals=sample_signals,
+                current_price=100.0,
+                indicators=sample_indicators,
+            ),
+            TickerScore(
+                ticker="D",
+                bullish_score=90,
+                signals=sample_signals,
+                current_price=100.0,
+                indicators=sample_indicators,
+            ),
+            TickerScore(
+                ticker="E",
+                bullish_score=60,
+                signals=sample_signals,
+                current_price=100.0,
+                indicators=sample_indicators,
+            ),
         ]
 
         # Rank the tickers
@@ -207,12 +235,27 @@ class TestRankingService:
     def test_extreme_score_values(self, ranking_service, sample_signals, sample_indicators):
         """Test with extreme score values (0 and 100)."""
         tickers = [
-            TickerScore(ticker="MIN", bullish_score=0, signals=sample_signals, 
-                       current_price=100.0, indicators=sample_indicators),
-            TickerScore(ticker="MAX", bullish_score=100, signals=sample_signals, 
-                       current_price=100.0, indicators=sample_indicators),
-            TickerScore(ticker="MID", bullish_score=50, signals=sample_signals, 
-                       current_price=100.0, indicators=sample_indicators),
+            TickerScore(
+                ticker="MIN",
+                bullish_score=0,
+                signals=sample_signals,
+                current_price=100.0,
+                indicators=sample_indicators,
+            ),
+            TickerScore(
+                ticker="MAX",
+                bullish_score=100,
+                signals=sample_signals,
+                current_price=100.0,
+                indicators=sample_indicators,
+            ),
+            TickerScore(
+                ticker="MID",
+                bullish_score=50,
+                signals=sample_signals,
+                current_price=100.0,
+                indicators=sample_indicators,
+            ),
         ]
 
         # Rank the tickers
@@ -230,12 +273,27 @@ class TestRankingService:
         """Test that the original list is not modified."""
         # Create original list
         original_tickers = [
-            TickerScore(ticker="C", bullish_score=30, signals=sample_signals, 
-                       current_price=100.0, indicators=sample_indicators),
-            TickerScore(ticker="A", bullish_score=90, signals=sample_signals, 
-                       current_price=100.0, indicators=sample_indicators),
-            TickerScore(ticker="B", bullish_score=60, signals=sample_signals, 
-                       current_price=100.0, indicators=sample_indicators),
+            TickerScore(
+                ticker="C",
+                bullish_score=30,
+                signals=sample_signals,
+                current_price=100.0,
+                indicators=sample_indicators,
+            ),
+            TickerScore(
+                ticker="A",
+                bullish_score=90,
+                signals=sample_signals,
+                current_price=100.0,
+                indicators=sample_indicators,
+            ),
+            TickerScore(
+                ticker="B",
+                bullish_score=60,
+                signals=sample_signals,
+                current_price=100.0,
+                indicators=sample_indicators,
+            ),
         ]
 
         # Store original order

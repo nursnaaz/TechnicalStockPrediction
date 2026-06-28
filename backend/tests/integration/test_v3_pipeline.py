@@ -12,19 +12,19 @@ end at the orchestrator level:
   IT-4 threshold gate vs backtest-mode (apply_signal_gate=False returns all scores)
 """
 
-import numpy as np
-import pytest
 from unittest.mock import AsyncMock, Mock
 
-from core.orchestrator import ScanOrchestrator
-from core.universe_builder import UniverseBuilder
-from core.regime_analyzer import MarketRegimeAnalyzer
-from core.indicator_calculator import IndicatorCalculator
-from core.scoring_engine import ScoringEngine
-from core.ranking_service import RankingService
-from core.models import StockData
-from api.models import ScanRequest, MarketRegime
+import numpy as np
+import pytest
 
+from api.models import MarketRegime, ScanRequest
+from core.indicator_calculator import IndicatorCalculator
+from core.models import StockData
+from core.orchestrator import ScanOrchestrator
+from core.ranking_service import RankingService
+from core.regime_analyzer import MarketRegimeAnalyzer
+from core.scoring_engine import ScoringEngine
+from core.universe_builder import UniverseBuilder
 
 N = 260
 
@@ -75,7 +75,7 @@ def _make_orchestrator(data_by_ticker):
 async def test_it1_bearish_regime_zero_candidates():
     """IT-1: bearish SPY → empty candidates, regime reported bearish."""
     data = {
-        "SPY": _downtrend("SPY"),       # SPY below its SMA200 → BEARISH
+        "SPY": _downtrend("SPY"),  # SPY below its SMA200 → BEARISH
         "AAPL": _uptrend("AAPL"),
     }
     orch = _make_orchestrator(data)
@@ -88,9 +88,9 @@ async def test_it1_bearish_regime_zero_candidates():
 async def test_it2_hard_filter_excludes_weak_keeps_leader():
     """IT-2: a downtrending ticker is excluded; an uptrending leader is kept."""
     data = {
-        "SPY": _uptrend("SPY"),          # bullish market
+        "SPY": _uptrend("SPY"),  # bullish market
         "STRONG": _uptrend("STRONG"),
-        "WEAK": _downtrend("WEAK"),      # below MAs → fails hard filters
+        "WEAK": _downtrend("WEAK"),  # below MAs → fails hard filters
     }
     orch = _make_orchestrator(data)
 
@@ -104,8 +104,8 @@ async def test_it2_hard_filter_excludes_weak_keeps_leader():
     bt = await orch.execute_scan(ScanRequest(tickers=["STRONG", "WEAK"]), apply_signal_gate=False)
     by_ticker = {t.ticker: t.bullish_score for t in bt.ranked_tickers}
     assert "STRONG" in by_ticker and "WEAK" in by_ticker
-    assert by_ticker["WEAK"] == 0        # hard-filter fail → score 0
-    assert by_ticker["STRONG"] > 0       # uptrend passes → real score
+    assert by_ticker["WEAK"] == 0  # hard-filter fail → score 0
+    assert by_ticker["STRONG"] > 0  # uptrend passes → real score
 
 
 @pytest.mark.asyncio
@@ -114,13 +114,11 @@ async def test_it3_rs_percentile_orders_leaders_first():
     # FAST rose more than SLOW over the recent window; both uptrends pass filters.
     data = {
         "SPY": _uptrend("SPY", 90.0, 110.0),
-        "FAST": _uptrend("FAST", 40.0, 160.0),   # steeper → higher RS
-        "SLOW": _uptrend("SLOW", 95.0, 130.0),   # shallower → lower RS
+        "FAST": _uptrend("FAST", 40.0, 160.0),  # steeper → higher RS
+        "SLOW": _uptrend("SLOW", 95.0, 130.0),  # shallower → lower RS
     }
     orch = _make_orchestrator(data)
-    resp = await orch.execute_scan(
-        ScanRequest(tickers=["FAST", "SLOW"]), apply_signal_gate=False
-    )
+    resp = await orch.execute_scan(ScanRequest(tickers=["FAST", "SLOW"]), apply_signal_gate=False)
     scores = {t.ticker: t.bullish_score for t in resp.ranked_tickers}
     assert "FAST" in scores and "SLOW" in scores
     assert scores["FAST"] >= scores["SLOW"]

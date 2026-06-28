@@ -1,0 +1,41 @@
+# Tooling configuration for the Bullish Stock Scanner backend.
+# Lint + format with Ruff (https://docs.astral.sh/ruff/), type-check with mypy.
+# Style follows PEP 8 + the Google Python Style Guide (grouped/sorted imports,
+# Google-style docstrings, type hints).
+
+[project]
+name = "bullish-stock-scanner"
+version = "3.0.0"
+description = "Precision-first technical stock scanner (V3) with backtesting."
+requires-python = ">=3.10"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [".venv", "scripts/_archive"]
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes, I: isort, UP: pyupgrade, B: bugbear,
+# C4: comprehensions, SIM: simplify, RUF: ruff-specific.
+select = ["E", "W", "F", "I", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+    "E501",   # line length handled by the formatter
+    "B008",   # FastAPI uses function calls (Depends/Field) in argument defaults
+    "SIM105", # contextlib.suppress is not always clearer than try/except/pass
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011", "SIM", "F811"]   # tests favour explicitness over simplification
+
+[tool.ruff.lint.isort]
+known-first-party = ["api", "core", "backtest", "utils", "config"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = true
+no_implicit_optional = true
+exclude = ["\\.venv", "tests/"]

@@ -7,6 +7,7 @@ classification (TP/FP/FN/TN) reflects the shipped BUY logic:
 """
 
 from unittest.mock import Mock
+
 from backtest.engine import BacktestEngine
 
 
@@ -22,8 +23,14 @@ def _forward(gain_pct):
 
 def test_bullish_high_score_went_up_is_true_positive():
     t = _engine()._analyze_trade(
-        "AAPL", 100.0, 80, Mock(), _forward(10.0), 30,
-        regime_tradeable=True, bullish_threshold=65,
+        "AAPL",
+        100.0,
+        80,
+        Mock(),
+        _forward(10.0),
+        30,
+        regime_tradeable=True,
+        bullish_threshold=65,
     )
     assert t["predicted_bullish"] is True
     assert t["actually_went_up"] is True
@@ -32,8 +39,14 @@ def test_bullish_high_score_went_up_is_true_positive():
 
 def test_below_threshold_is_not_predicted():
     t = _engine()._analyze_trade(
-        "AAPL", 100.0, 60, Mock(), _forward(10.0), 30,
-        regime_tradeable=True, bullish_threshold=65,
+        "AAPL",
+        100.0,
+        60,
+        Mock(),
+        _forward(10.0),
+        30,
+        regime_tradeable=True,
+        bullish_threshold=65,
     )
     assert t["predicted_bullish"] is False
     # went up but not predicted → false negative
@@ -43,8 +56,14 @@ def test_below_threshold_is_not_predicted():
 def test_bearish_regime_never_predicts_bullish():
     """Even a 90 score in a bearish market is NOT a BUY (March-2026 behavior)."""
     t = _engine()._analyze_trade(
-        "AAPL", 100.0, 90, Mock(), _forward(12.0), 30,
-        regime_tradeable=False, bullish_threshold=65,
+        "AAPL",
+        100.0,
+        90,
+        Mock(),
+        _forward(12.0),
+        30,
+        regime_tradeable=False,
+        bullish_threshold=65,
     )
     assert t["predicted_bullish"] is False
     assert t["classification"] == "false_negative"  # went up but we (correctly) stayed out
@@ -52,12 +71,24 @@ def test_bearish_regime_never_predicts_bullish():
 
 def test_neutral_threshold_75_boundary():
     below = _engine()._analyze_trade(
-        "AAPL", 100.0, 70, Mock(), _forward(1.0), 30,
-        regime_tradeable=True, bullish_threshold=75,
+        "AAPL",
+        100.0,
+        70,
+        Mock(),
+        _forward(1.0),
+        30,
+        regime_tradeable=True,
+        bullish_threshold=75,
     )
     at = _engine()._analyze_trade(
-        "AAPL", 100.0, 75, Mock(), _forward(1.0), 30,
-        regime_tradeable=True, bullish_threshold=75,
+        "AAPL",
+        100.0,
+        75,
+        Mock(),
+        _forward(1.0),
+        30,
+        regime_tradeable=True,
+        bullish_threshold=75,
     )
     assert below["predicted_bullish"] is False
     assert at["predicted_bullish"] is True
