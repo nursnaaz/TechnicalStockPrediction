@@ -45,11 +45,21 @@ export default defineConfig({
   /* Output directory for test results */
   outputDir: 'test-results/',
   
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
-  },
+  /* Start BOTH the backend (FastAPI) and the frontend (Vite) before tests.
+     The V3 e2e specs hit http://localhost:8000/api/v1/* through the app, so the
+     backend must be running. POLYGON_TOKEN is inherited from the environment. */
+  webServer: [
+    {
+      command: 'cd ../backend && (.venv/bin/uvicorn main:app --port 8000 || uvicorn main:app --port 8000)',
+      url: 'http://localhost:8000/api/v1/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120 * 1000,
+    },
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120 * 1000,
+    },
+  ],
 });

@@ -30,9 +30,11 @@ export default function MarketRegimeBadge({ regime }: MarketRegimeBadgeProps) {
 
   return (
     <Container header={<Header variant="h2">Market Regime</Header>}>
-      <StatusIndicator type={getStatusType(regime)}>
-        {getLabel(regime)} Market
-      </StatusIndicator>
+      <span data-testid="market-regime-badge" data-regime={regime}>
+        <StatusIndicator type={getStatusType(regime)}>
+          {getLabel(regime)} Market
+        </StatusIndicator>
+      </span>
     </Container>
   );
 }

@@ -250,11 +250,15 @@ export default function BacktestPanel() {
                 <ColumnLayout columns={2}>
                   <FormField label={`Score Threshold: ${scoreThreshold}`}
                     constraintText="↑ Higher = stricter predictions | ↓ Lower = catch more">
-                    <Slider value={scoreThreshold} onChange={({ detail }) => setScoreThreshold(detail.value)} min={10} max={100} step={5} />
+                    <span data-testid="score-threshold-slider">
+                      <Slider value={scoreThreshold} onChange={({ detail }) => setScoreThreshold(detail.value)} min={10} max={100} step={5} />
+                    </span>
                   </FormField>
                   <FormField label={`Gain Threshold: ${gainThreshold}%`}
                     constraintText="↑ Higher = harder bar for 'bullish' | ↓ Lower = easier">
-                    <Slider value={gainThreshold} onChange={({ detail }) => setGainThreshold(detail.value)} min={1} max={25} step={1} />
+                    <span data-testid="gain-threshold-slider">
+                      <Slider value={gainThreshold} onChange={({ detail }) => setGainThreshold(detail.value)} min={1} max={25} step={1} />
+                    </span>
                   </FormField>
                 </ColumnLayout>
               </Container>
@@ -271,14 +275,14 @@ export default function BacktestPanel() {
                 <Container>
                   <Box variant="awsui-key-label">Precision</Box>
                   <Box variant="h1" color={cm.precision >= 0.6 ? "text-status-success" : "text-status-warning"}>
-                    {(cm.precision * 100).toFixed(0)}%
+                    <span data-testid="metric-precision">{(cm.precision * 100).toFixed(0)}%</span>
                   </Box>
                   <Box variant="small">When we say bullish, how often right</Box>
                 </Container>
                 <Container>
                   <Box variant="awsui-key-label">Recall</Box>
                   <Box variant="h1" color={cm.recall >= 0.5 ? "text-status-success" : "text-status-warning"}>
-                    {(cm.recall * 100).toFixed(0)}%
+                    <span data-testid="metric-recall">{(cm.recall * 100).toFixed(0)}%</span>
                   </Box>
                   <Box variant="small">Of all gainers, how many we caught</Box>
                 </Container>
@@ -296,11 +300,11 @@ export default function BacktestPanel() {
                   <div style={{ textAlign: "center", fontWeight: "bold", padding: "8px", background: "#f0f0f0" }}>Actual ≥{gainThreshold}%</div>
                   <div style={{ textAlign: "center", fontWeight: "bold", padding: "8px", background: "#f0f0f0" }}>Actual &lt;{gainThreshold}%</div>
                   <div style={{ fontWeight: "bold", padding: "8px", background: "#f0f0f0", display: "flex", alignItems: "center" }}>Predicted ≥{scoreThreshold}</div>
-                  <div style={{ textAlign: "center", padding: "16px", background: "#d4edda", borderRadius: "4px", fontSize: "1.5em", fontWeight: "bold" }}>{cm.tp}<br/><span style={{fontSize:"0.5em",color:"#155724"}}>TRUE POS</span></div>
-                  <div style={{ textAlign: "center", padding: "16px", background: "#f8d7da", borderRadius: "4px", fontSize: "1.5em", fontWeight: "bold" }}>{cm.fp}<br/><span style={{fontSize:"0.5em",color:"#721c24"}}>FALSE POS</span></div>
+                  <div data-testid="cm-tp" style={{ textAlign: "center", padding: "16px", background: "#d4edda", borderRadius: "4px", fontSize: "1.5em", fontWeight: "bold" }}>{cm.tp}<br/><span style={{fontSize:"0.5em",color:"#155724"}}>TRUE POS</span></div>
+                  <div data-testid="cm-fp" style={{ textAlign: "center", padding: "16px", background: "#f8d7da", borderRadius: "4px", fontSize: "1.5em", fontWeight: "bold" }}>{cm.fp}<br/><span style={{fontSize:"0.5em",color:"#721c24"}}>FALSE POS</span></div>
                   <div style={{ fontWeight: "bold", padding: "8px", background: "#f0f0f0", display: "flex", alignItems: "center" }}>Predicted &lt;{scoreThreshold}</div>
-                  <div style={{ textAlign: "center", padding: "16px", background: "#fff3cd", borderRadius: "4px", fontSize: "1.5em", fontWeight: "bold" }}>{cm.fn}<br/><span style={{fontSize:"0.5em",color:"#856404"}}>FALSE NEG</span></div>
-                  <div style={{ textAlign: "center", padding: "16px", background: "#e2e8f0", borderRadius: "4px", fontSize: "1.5em", fontWeight: "bold" }}>{cm.tn}<br/><span style={{fontSize:"0.5em",color:"#2d3748"}}>TRUE NEG</span></div>
+                  <div data-testid="cm-fn" style={{ textAlign: "center", padding: "16px", background: "#fff3cd", borderRadius: "4px", fontSize: "1.5em", fontWeight: "bold" }}>{cm.fn}<br/><span style={{fontSize:"0.5em",color:"#856404"}}>FALSE NEG</span></div>
+                  <div data-testid="cm-tn" style={{ textAlign: "center", padding: "16px", background: "#e2e8f0", borderRadius: "4px", fontSize: "1.5em", fontWeight: "bold" }}>{cm.tn}<br/><span style={{fontSize:"0.5em",color:"#2d3748"}}>TRUE NEG</span></div>
                 </div>
               </Container>
 
@@ -366,6 +370,19 @@ export default function BacktestPanel() {
             />
           )},
         ]} />
+      )}
+
+      {/* Ran, but the V3 engine produced no trades (e.g. bearish market → 0 BUYs) */}
+      {result && !loading && trades.length === 0 && (
+        <Container data-testid="backtest-empty">
+          <Box textAlign="center" color="inherit">
+            <b>No trades for this scan</b>
+            <Box variant="p" color="inherit">
+              The V3 engine surfaced no qualifying candidates for this date
+              {result.market_regime === "bearish" ? " — the market was bearish (zero buy signals)." : "."}
+            </Box>
+          </Box>
+        </Container>
       )}
     </SpaceBetween>
   );

@@ -2,17 +2,18 @@ import Table from "@cloudscape-design/components/table";
 import Badge from "@cloudscape-design/components/badge";
 import Header from "@cloudscape-design/components/header";
 import Box from "@cloudscape-design/components/box";
-import type { TickerScore } from "../types/scan";
+import type { TickerScore, MarketRegime } from "../types/scan";
 import SignalBadges from "./SignalBadges";
 
 interface ResultsTableProps {
   tickers: TickerScore[];
+  regime?: MarketRegime;
 }
 
 /**
  * Table component displaying ranked tickers with scores and signals
  */
-export default function ResultsTable({ tickers }: ResultsTableProps) {
+export default function ResultsTable({ tickers, regime }: ResultsTableProps) {
   const getScoreColor = (score: number): "green" | "blue" | "grey" => {
     if (score >= 70) return "green";
     if (score >= 40) return "blue";
@@ -73,11 +74,23 @@ export default function ResultsTable({ tickers }: ResultsTableProps) {
       items={rankedItems}
       variant="container"
       empty={
-        <Box textAlign="center" color="inherit">
-          <b>No results</b>
-          <Box variant="p" color="inherit">
-            No tickers were successfully analyzed.
-          </Box>
+        <Box textAlign="center" color="inherit" data-testid="results-empty">
+          {regime === "bearish" ? (
+            <>
+              <b>No signals in a bearish market</b>
+              <Box variant="p" color="inherit">
+                The market is below its 200-day trend, so V3 emits zero buy
+                candidates. Wait for the market to recover.
+              </Box>
+            </>
+          ) : (
+            <>
+              <b>No qualifying candidates</b>
+              <Box variant="p" color="inherit">
+                No tickers passed the V3 filters and score threshold for this scan.
+              </Box>
+            </>
+          )}
         </Box>
       }
     />

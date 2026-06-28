@@ -110,7 +110,7 @@ function App() {
                     {results && (
                       <SpaceBetween size="m">
                         <MarketRegimeBadge regime={results.market_regime} />
-                        <ResultsTable tickers={results.ranked_tickers} />
+                        <ResultsTable tickers={results.ranked_tickers} regime={results.market_regime} />
                       </SpaceBetween>
                     )}
                   </SpaceBetween>
