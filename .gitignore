@@ -226,3 +226,4 @@ frontend/test-results/
 frontend/playwright-report/
 # stray stringified-object files from a past test bug
 backend/<async_generator*
+.DS_Store

@@ -1,46 +1,52 @@
-# Bullish Stock Scanner
+# Bullish Stock Scanner (V3)
 
-A Python-based MVP system that identifies potentially bullish stocks through technical analysis. The system fetches stock data from a REST API, calculates core technical indicators, scores tickers based on bullish signals, and presents ranked results through both a FastAPI backend and a React frontend.
+A precision-first, trend-following stock scanner for halal-screened US equities. It fetches
+point-in-time data from the Massive market-data API, applies Minervini-style hard filters plus a
+gradient scoring engine gated on the broad-market regime, and validates predictions with backtesting —
+served through a FastAPI backend and a React/Cloudscape frontend.
+
+> **V3 philosophy:** prove the uptrend, then buy the first pullback — never bottom-fish. It deliberately
+> emits **fewer, higher-conviction** signals (and **zero** signals in a bearish market). See
+> `docs/V3_VALIDATION_RESULTS.md` and `docs/V3_TUNING_REPORT.html` for measured precision/return.
 
 ## Features
 
-- **Technical Indicator Analysis**: Computes 10 indicators (SMA, EMA, MACD, RSI, ROC, Volume, Relative Strength, Breakout Proximity)
-- **V2 Gradient Scoring Engine**: Partial-credit scoring (not binary pass/fail) for more accurate predictions
-- **Market Regime Detection**: Classifies current market conditions (bullish, bearish, neutral)
-- **Backtesting Framework**: Point-in-time backtesting with zero look-ahead bias
-- **Confusion Matrix**: TP/FP/FN/TN analysis with accuracy, precision, recall, F1 metrics
-- **Interactive Threshold Tuning**: Sliders to dynamically adjust score/gain thresholds and see metric changes
-- **REST API**: FastAPI backend with automatic Swagger documentation
-- **Modern Frontend**: React UI with Cloudscape Design System
-- **Concurrent Processing**: Efficient data fetching with connection pooling (5 concurrent requests)
-- **Property-Based Testing**: Comprehensive test coverage using hypothesis
+- **Market-regime gate** — SPY vs its 200-day SMA with 5-day persistence; a bearish market emits **zero**
+  candidates, otherwise the BUY threshold is 65 (bullish) / 75 (neutral).
+- **Minervini hard filters (H1–H6)** — price above SMA150/200, golden cross, rising SMA200, within 25%
+  of the 52-week high, ≥30% above the 52-week low. Any fail → excluded.
+- **V3 gradient scoring (0–100)** — Trend, Momentum, Strength (RSI + cross-universe **RS percentile**),
+  Confirmation, Stage-2 + Pattern bonus; minus **extension**, **climax/exhaustion**, and **indicator
+  divergence** penalties.
+- **Backtesting** — point-in-time (no look-ahead), regime-aware confusion matrix (TP/FP/FN/TN over the
+  **full universe**), precision/recall/F1, and a $1,000-per-signal portfolio simulation.
+- **Interactive threshold tuning** — sliders default to the empirically optimal score 80 / gain 5%.
+- **Live Scanner "Show all scanned" toggle** — see every stock's status (Candidate / Below threshold /
+  Failed filters), not just the buy candidates.
+- **REST API** (FastAPI + Swagger), **Cloudscape** React UI, 5-concurrent connection pooling, and a
+  **308-test** suite (unit + Hypothesis property + integration + backtest) with Playwright E2E.
 
 ## Architecture
 
-### System Components
+### Backend pipeline (`backend/core/`, two-pass)
 
-**Backend (Python + FastAPI):**
-- REST API Client: Fetches stock data with retry logic and caching ✓
-- Universe Builder: Validates and constructs ticker lists ✓
-- Indicator Calculator: Computes technical indicators (SMA, EMA, MACD, Volume, RS) ✓
-- Market Regime Analyzer: Determines market conditions using SPY index ✓
-- Scoring Engine: Assigns bullish scores based on signals ✓
-- Ranking Service: Sorts and ranks tickers by score ✓
-- Scan Store: Persists completed scan results to SQLite ✓
-- Scan Orchestrator: Coordinates the complete scan pipeline ✓
+`ScanOrchestrator.execute_scan()` coordinates:
 
-**Frontend (React + TypeScript + Cloudscape):**
-- Project initialized with Vite ✓
-- Cloudscape Design System installed ✓
-- TypeScript type definitions ✓
-- API service layer (executeScan, getScanById, checkHealth) ✓
-- ScanButton component with loading state ✓
-- LoadingIndicator component ✓
-- MarketRegimeBadge component ✓
-- ResultsTable component with ranked display ✓
-- SignalBadges component ✓
-- ErrorMessage component ✓
-- App.tsx with full state management and integration ✓
+1. **`MarketRegimeAnalyzer`** → `RegimeResult(regime, threshold, emit_signals)`. Bearish ⇒ short-circuit
+   to zero candidates.
+2. **PASS 1** — `RestApiClient` fetches ≥252 trading bars per ticker; `IndicatorCalculator` computes the
+   indicator set + raw relative strength.
+3. Compute the **RS percentile** across the universe (two-pass requirement).
+4. **PASS 2** — `ScoringEngine.passes_hard_filters()` gate → `calculate_enhanced_score(rs_percentile)` →
+   keep tickers scoring ≥ the regime threshold.
+5. **`RankingService`** sorts by score; **`ScanStore`** persists to SQLite.
+
+`apply_signal_gate=False` (used by backtesting) skips the bearish/threshold gates and returns the whole
+scored universe, so the confusion matrix and threshold sweeps see every stock.
+
+**Backtesting** (`backend/backtest/`): `BacktestEngine` re-runs the scanner at historical `as_of_date`s;
+`metrics.py` builds the confusion matrix. **Frontend** (`frontend/src/`): `App.tsx` (Live Scanner +
+Backtest tabs) with Cloudscape `BacktestPanel`, `ResultsTable`, `MarketRegimeBadge`, etc.
 
 ## Installation
 
@@ -76,8 +82,7 @@ echo $POLYGON_TOKEN  # Should display your API token
 # export POLYGON_TOKEN="your_token_here"
 
 # 5. Optional: Override configuration defaults
-# Create backend/.env file with:
-# API_BASE_URL=https://api.massive.com/v2  (default)
+# API_BASE_URL=https://api.massive.com/v2  (Massive market-data API)
 # SERVER_PORT=8000  (default)
 # LOG_LEVEL=INFO  (default)
 ```
@@ -197,15 +202,20 @@ Access at http://localhost:5173 → Backtest tab. Features:
 - Accuracy, Precision, Recall, F1 metrics
 - Sortable trade-by-trade results table
 
-### Optimal Settings (from 495-trade backtest)
+### Optimal Settings (from the 714-trade V3 tuning — `docs/V3_TUNING_REPORT.html`)
+
+Full halal universe (~212 tickers) × 10 dates (2023–2025), buy-and-hold 30 trading days:
 
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
-| Score Threshold | 40 | Best F1 balance for gradient scoring engine |
-| Gain Threshold | 3% | Meaningful gain in 30 days (~36% annualized) |
-| Horizon | 30 days | Sweet spot between 20-30 days |
+| Score Threshold | **80** | Best precision (~60% @ +5%) and best portfolio return (UI sliders default to 80) |
+| Gain Threshold | **5%** | Realistic "win" bar; ~72% of score≥80 signals reach +3%, ~60% reach +5% |
+| Horizon | 30 trading days | The evaluation window |
 
-Results: F1=79%, Precision=83%, Recall=75%
+**Honest results:** in-sample precision **~81.5%**, out-of-sample **~56.7%**, recall **~33–35%**, and a
+**+2.2% / 30-day cycle** portfolio profit rate at score≥80 — net positive but with high month-to-month
+variance (e.g. 2024-11 strong vs 2025-03 weak). FP and TP trades are statistically near-identical on
+these indicators, so this is the realistic ceiling for a pure-technical scanner.
 
 ## Testing
 
