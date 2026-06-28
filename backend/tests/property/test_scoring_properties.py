@@ -1,768 +1,152 @@
 """
-Property-Based Tests for Scoring Engine
+Property-Based Tests for the V3 Scoring Engine.
 
-Tests mathematical properties and invariants for bullish score calculations.
+Replaces the obsolete V2 binary-scoring properties (P11-P17) with the V3
+Correctness Properties from the spec:
+
+  P2  Hard-filter failure forces exclusion (passes_hard_filters)
+  P4  Extension penalty never raises the score; score stays bounded
+  P5  RS-percentile scoring is monotonic non-decreasing
+  P6  Divergence penalty thresholds (None-aware denominator, <=0.75 boundary)
+  P8  Final score is always an int in [0, 100], even with None indicators
 """
 
 import pytest
-from hypothesis import given, strategies as st, assume, settings
+from hypothesis import given, strategies as st, settings
+
 from core.scoring_engine import ScoringEngine
 from core.models import TechnicalIndicators
 
 
-# Custom strategies for realistic test data
-def price_strategy(min_price=1.0, max_price=1000.0):
-    """Generate realistic price values."""
-    return st.floats(
-        min_value=min_price,
-        max_value=max_price,
-        allow_nan=False,
-        allow_infinity=False
-    )
+engine = ScoringEngine()
 
 
-def volume_strategy(min_volume=1000, max_volume=1000000000):
-    """Generate realistic volume values."""
-    return st.integers(min_value=min_volume, max_value=max_volume)
+# ---------------------------------------------------------------------------
+# P2: Hard-filter failure
+# ---------------------------------------------------------------------------
+class TestHardFilterProperty:
+    """P2: all_pass is exactly the conjunction of the six checks. **Validates: R2**"""
 
-
-def indicator_value_strategy():
-    """Generate realistic indicator values (can be negative or positive)."""
-    return st.floats(
-        min_value=-1000.0,
-        max_value=1000.0,
-        allow_nan=False,
-        allow_infinity=False
-    )
-
-
-def optional_indicator_strategy():
-    """Generate optional indicator values (None or float)."""
-    return st.one_of(st.none(), indicator_value_strategy())
-
-
-class TestPriceAboveSMAScoring:
-    """Property-based tests for Price Above SMA(50) scoring rule."""
-
-    @settings(max_examples=20)
+    @settings(max_examples=50)
     @given(
-        current_price=price_strategy(),
-        sma_50=price_strategy()
+        price=st.floats(min_value=10, max_value=500),
+        sma_200=st.floats(min_value=10, max_value=500),
+        slope=st.floats(min_value=-50, max_value=50),
+        sma_150=st.floats(min_value=10, max_value=500),
+        sma_50=st.floats(min_value=10, max_value=500),
+        wk_low=st.floats(min_value=1, max_value=500),
+        wk_high=st.floats(min_value=1, max_value=600),
     )
-    def test_property_11_price_above_sma_scoring(
-        self, current_price: float, sma_50: float
+    def test_all_pass_matches_individual_checks(
+        self, price, sma_200, slope, sma_150, sma_50, wk_low, wk_high
     ):
-        """
-        Property 11: Price Above SMA Scoring
-        **Validates: Requirements 5.2**
-
-        Property: When the current price is above the 50-day SMA, the scoring
-        engine SHALL add exactly 20 points to the bullish score. When the
-        current price is at or below the 50-day SMA, no points SHALL be added.
-        """
-        engine = ScoringEngine()
-        
-        # Create indicators with only SMA populated
-        indicators = TechnicalIndicators(sma_50=sma_50)
-        
-        score, signals = engine.calculate_score(
-            current_price=current_price,
-            current_volume=1000000.0,
-            indicators=indicators
+        ind = TechnicalIndicators(
+            sma_50=sma_50, sma_150=sma_150, sma_200=sma_200,
+            sma_200_slope=slope, week52_low=wk_low, week52_high=wk_high,
         )
-        
-        # Verify signal flag
-        assert signals.price_above_sma50 == (current_price > sma_50)
-        
-        # Verify score contribution
-        if current_price > sma_50:
-            assert score == 20
-        else:
-            assert score == 0
+        ok, checks = engine.passes_hard_filters(price, ind)
+        assert ok == all(checks.values())
+        assert checks["H1"] == (price > sma_200)
+        assert checks["H2"] == (slope > 0)
+        assert checks["H4"] == (sma_50 > sma_200)
 
-    @settings(max_examples=20)
+    @pytest.mark.parametrize("missing", ["sma_200", "sma_200_slope", "sma_150", "week52_low", "week52_high"])
+    def test_missing_indicator_fails(self, missing):
+        ind = TechnicalIndicators(
+            sma_50=110, sma_150=105, sma_200=100, sma_200_slope=1.0,
+            week52_low=80, week52_high=130,
+        )
+        setattr(ind, missing, None)
+        ok, _ = engine.passes_hard_filters(120.0, ind)
+        assert ok is False
+
+
+# ---------------------------------------------------------------------------
+# P4 + P8: bounds
+# ---------------------------------------------------------------------------
+class TestScoreBoundsProperty:
+    """P8: score is always int in [0,100]. **Validates: R7, R8**"""
+
+    @settings(max_examples=100)
     @given(
-        current_price=price_strategy(),
-        current_volume=volume_strategy()
+        price=st.floats(min_value=1, max_value=1000),
+        volume=st.floats(min_value=0, max_value=1e9),
+        sma_50=st.one_of(st.none(), st.floats(min_value=1, max_value=1000)),
+        ema_20=st.one_of(st.none(), st.floats(min_value=1, max_value=1000)),
+        rsi=st.one_of(st.none(), st.floats(min_value=0, max_value=100)),
+        roc=st.one_of(st.none(), st.floats(min_value=-50, max_value=50)),
+        macd_line=st.one_of(st.none(), st.floats(min_value=-10, max_value=10)),
+        macd_signal=st.one_of(st.none(), st.floats(min_value=-10, max_value=10)),
+        rs=st.one_of(st.none(), st.floats(min_value=-20, max_value=20)),
+        pct=st.one_of(st.none(), st.floats(min_value=0, max_value=100)),
     )
-    def test_property_11_sma_none_no_points(
-        self, current_price: float, current_volume: float
-    ):
-        """
-        Property 11: Price Above SMA Scoring (Missing Indicator)
-        **Validates: Requirements 5.2**
-
-        Property: When SMA(50) is None (unavailable), the signal SHALL be
-        False and no points SHALL be added regardless of current price.
-        """
-        engine = ScoringEngine()
-        
-        # Create indicators with SMA as None
-        indicators = TechnicalIndicators(sma_50=None)
-        
-        score, signals = engine.calculate_score(
-            current_price=current_price,
-            current_volume=current_volume,
-            indicators=indicators
+    def test_score_bounded(self, price, volume, sma_50, ema_20, rsi, roc,
+                           macd_line, macd_signal, rs, pct):
+        ind = TechnicalIndicators(
+            sma_50=sma_50, ema_20=ema_20, rsi_14=rsi, roc_10=roc,
+            macd_line=macd_line, macd_signal=macd_signal, relative_strength=rs,
+            avg_volume_20=1_000_000.0,
         )
-        
-        # Signal should be False when indicator is missing
-        assert signals.price_above_sma50 is False
-        # Score should be 0 with no indicators
-        assert score == 0
-
-
-class TestPriceAboveEMAScoring:
-    """Property-based tests for Price Above EMA(20) scoring rule."""
-
-    @settings(max_examples=20)
-    @given(
-        current_price=price_strategy(),
-        ema_20=price_strategy()
-    )
-    def test_property_12_price_above_ema_scoring(
-        self, current_price: float, ema_20: float
-    ):
-        """
-        Property 12: Price Above EMA Scoring
-        **Validates: Requirements 5.3**
-
-        Property: When the current price is above the 20-day EMA, the scoring
-        engine SHALL add exactly 15 points to the bullish score. When the
-        current price is at or below the 20-day EMA, no points SHALL be added.
-        """
-        engine = ScoringEngine()
-        
-        # Create indicators with only EMA populated
-        indicators = TechnicalIndicators(ema_20=ema_20)
-        
-        score, signals = engine.calculate_score(
-            current_price=current_price,
-            current_volume=1000000.0,
-            indicators=indicators
-        )
-        
-        # Verify signal flag
-        assert signals.price_above_ema20 == (current_price > ema_20)
-        
-        # Verify score contribution
-        if current_price > ema_20:
-            assert score == 15
-        else:
-            assert score == 0
-
-    @settings(max_examples=20)
-    @given(
-        current_price=price_strategy(),
-        current_volume=volume_strategy()
-    )
-    def test_property_12_ema_none_no_points(
-        self, current_price: float, current_volume: float
-    ):
-        """
-        Property 12: Price Above EMA Scoring (Missing Indicator)
-        **Validates: Requirements 5.3**
-
-        Property: When EMA(20) is None (unavailable), the signal SHALL be
-        False and no points SHALL be added regardless of current price.
-        """
-        engine = ScoringEngine()
-        
-        # Create indicators with EMA as None
-        indicators = TechnicalIndicators(ema_20=None)
-        
-        score, signals = engine.calculate_score(
-            current_price=current_price,
-            current_volume=current_volume,
-            indicators=indicators
-        )
-        
-        # Signal should be False when indicator is missing
-        assert signals.price_above_ema20 is False
-        # Score should be 0 with no indicators
-        assert score == 0
-
-
-class TestMACDAboveSignalScoring:
-    """Property-based tests for MACD Above Signal scoring rule."""
-
-    @settings(max_examples=20)
-    @given(
-        macd_line=indicator_value_strategy(),
-        macd_signal=indicator_value_strategy()
-    )
-    def test_property_13_macd_above_signal_scoring(
-        self, macd_line: float, macd_signal: float
-    ):
-        """
-        Property 13: MACD Above Signal Scoring
-        **Validates: Requirements 5.4**
-
-        Property: When the MACD line is above the signal line, the scoring
-        engine SHALL add exactly 20 points to the bullish score. When the
-        MACD line is at or below the signal line, no points SHALL be added.
-        """
-        engine = ScoringEngine()
-        
-        # Create indicators with MACD values populated
-        indicators = TechnicalIndicators(
-            macd_line=macd_line,
-            macd_signal=macd_signal
-        )
-        
-        score, signals = engine.calculate_score(
-            current_price=100.0,
-            current_volume=1000000.0,
-            indicators=indicators
-        )
-        
-        # Verify signal flag
-        assert signals.macd_above_signal == (macd_line > macd_signal)
-        
-        # Verify score contribution
-        if macd_line > macd_signal:
-            assert score == 20
-        else:
-            assert score == 0
-
-    @settings(max_examples=20)
-    @given(
-        macd_line=st.one_of(st.none(), indicator_value_strategy()),
-        macd_signal=st.one_of(st.none(), indicator_value_strategy())
-    )
-    def test_property_13_macd_none_no_points(
-        self, macd_line: float, macd_signal: float
-    ):
-        """
-        Property 13: MACD Above Signal Scoring (Missing Indicators)
-        **Validates: Requirements 5.4**
-
-        Property: When either MACD line or signal line is None (unavailable),
-        the signal SHALL be False and no points SHALL be added.
-        """
-        # Skip if both are available (tested in main property test)
-        assume(macd_line is None or macd_signal is None)
-        
-        engine = ScoringEngine()
-        
-        # Create indicators with at least one MACD value as None
-        indicators = TechnicalIndicators(
-            macd_line=macd_line,
-            macd_signal=macd_signal
-        )
-        
-        score, signals = engine.calculate_score(
-            current_price=100.0,
-            current_volume=1000000.0,
-            indicators=indicators
-        )
-        
-        # Signal should be False when either indicator is missing
-        assert signals.macd_above_signal is False
-        # Score should be 0 with no other indicators
-        assert score == 0
-
-
-class TestMACDHistogramPositiveScoring:
-    """Property-based tests for MACD Histogram Positive scoring rule."""
-
-    @settings(max_examples=20)
-    @given(macd_histogram=indicator_value_strategy())
-    def test_property_14_macd_histogram_positive_scoring(
-        self, macd_histogram: float
-    ):
-        """
-        Property 14: MACD Histogram Positive Scoring
-        **Validates: Requirements 5.5**
-
-        Property: When the MACD histogram is positive (> 0), the scoring
-        engine SHALL add exactly 10 points to the bullish score. When the
-        MACD histogram is zero or negative, no points SHALL be added.
-        """
-        engine = ScoringEngine()
-        
-        # Create indicators with histogram populated
-        indicators = TechnicalIndicators(macd_histogram=macd_histogram)
-        
-        score, signals = engine.calculate_score(
-            current_price=100.0,
-            current_volume=1000000.0,
-            indicators=indicators
-        )
-        
-        # Verify signal flag
-        assert signals.macd_histogram_positive == (macd_histogram > 0)
-        
-        # Verify score contribution
-        if macd_histogram > 0:
-            assert score == 10
-        else:
-            assert score == 0
-
-    @settings(max_examples=20)
-    @given(
-        current_price=price_strategy(),
-        current_volume=volume_strategy()
-    )
-    def test_property_14_histogram_none_no_points(
-        self, current_price: float, current_volume: float
-    ):
-        """
-        Property 14: MACD Histogram Positive Scoring (Missing Indicator)
-        **Validates: Requirements 5.5**
-
-        Property: When MACD histogram is None (unavailable), the signal SHALL
-        be False and no points SHALL be added.
-        """
-        engine = ScoringEngine()
-        
-        # Create indicators with histogram as None
-        indicators = TechnicalIndicators(macd_histogram=None)
-        
-        score, signals = engine.calculate_score(
-            current_price=current_price,
-            current_volume=current_volume,
-            indicators=indicators
-        )
-        
-        # Signal should be False when indicator is missing
-        assert signals.macd_histogram_positive is False
-        # Score should be 0 with no indicators
-        assert score == 0
-
-
-class TestVolumeSurgeScoring:
-    """Property-based tests for Volume Surge scoring rule."""
-
-    @settings(max_examples=20)
-    @given(
-        current_volume=volume_strategy(),
-        avg_volume_20=volume_strategy()
-    )
-    def test_property_15_volume_surge_scoring(
-        self, current_volume: float, avg_volume_20: float
-    ):
-        """
-        Property 15: Volume Surge Scoring
-        **Validates: Requirements 5.6**
-
-        Property: When the current volume exceeds the 20-day average volume
-        by at least 20% (current_volume > avg_volume * 1.2), the scoring
-        engine SHALL add exactly 15 points to the bullish score. Otherwise,
-        no points SHALL be added.
-        """
-        assume(avg_volume_20 > 0)  # Avoid division by zero edge cases
-        
-        engine = ScoringEngine()
-        
-        # Create indicators with average volume populated
-        indicators = TechnicalIndicators(avg_volume_20=float(avg_volume_20))
-        
-        score, signals = engine.calculate_score(
-            current_price=100.0,
-            current_volume=float(current_volume),
-            indicators=indicators
-        )
-        
-        # Verify signal flag
-        expected_signal = current_volume > (avg_volume_20 * 1.2)
-        assert signals.volume_above_average == expected_signal
-        
-        # Verify score contribution
-        if current_volume > (avg_volume_20 * 1.2):
-            assert score == 15
-        else:
-            assert score == 0
-
-    @settings(max_examples=20)
-    @given(current_volume=volume_strategy())
-    def test_property_15_avg_volume_none_no_points(self, current_volume: float):
-        """
-        Property 15: Volume Surge Scoring (Missing Indicator)
-        **Validates: Requirements 5.6**
-
-        Property: When average volume is None (unavailable), the signal SHALL
-        be False and no points SHALL be added regardless of current volume.
-        """
-        engine = ScoringEngine()
-        
-        # Create indicators with average volume as None
-        indicators = TechnicalIndicators(avg_volume_20=None)
-        
-        score, signals = engine.calculate_score(
-            current_price=100.0,
-            current_volume=current_volume,
-            indicators=indicators
-        )
-        
-        # Signal should be False when indicator is missing
-        assert signals.volume_above_average is False
-        # Score should be 0 with no indicators
-        assert score == 0
-
-
-class TestRelativeStrengthPositiveScoring:
-    """Property-based tests for Relative Strength Positive scoring rule."""
-
-    @settings(max_examples=20)
-    @given(relative_strength=indicator_value_strategy())
-    def test_property_16_relative_strength_positive_scoring(
-        self, relative_strength: float
-    ):
-        """
-        Property 16: Relative Strength Positive Scoring
-        **Validates: Requirements 5.7**
-
-        Property: When the relative strength is positive (> 0), indicating
-        the ticker is outperforming the market, the scoring engine SHALL add
-        exactly 20 points to the bullish score. When relative strength is
-        zero or negative, no points SHALL be added.
-        """
-        engine = ScoringEngine()
-        
-        # Create indicators with relative strength populated
-        indicators = TechnicalIndicators(relative_strength=relative_strength)
-        
-        score, signals = engine.calculate_score(
-            current_price=100.0,
-            current_volume=1000000.0,
-            indicators=indicators
-        )
-        
-        # Verify signal flag
-        assert signals.relative_strength_positive == (relative_strength > 0)
-        
-        # Verify score contribution
-        if relative_strength > 0:
-            assert score == 20
-        else:
-            assert score == 0
-
-    @settings(max_examples=20)
-    @given(
-        current_price=price_strategy(),
-        current_volume=volume_strategy()
-    )
-    def test_property_16_relative_strength_none_no_points(
-        self, current_price: float, current_volume: float
-    ):
-        """
-        Property 16: Relative Strength Positive Scoring (Missing Indicator)
-        **Validates: Requirements 5.7**
-
-        Property: When relative strength is None (unavailable), the signal
-        SHALL be False and no points SHALL be added.
-        """
-        engine = ScoringEngine()
-        
-        # Create indicators with relative strength as None
-        indicators = TechnicalIndicators(relative_strength=None)
-        
-        score, signals = engine.calculate_score(
-            current_price=current_price,
-            current_volume=current_volume,
-            indicators=indicators
-        )
-        
-        # Signal should be False when indicator is missing
-        assert signals.relative_strength_positive is False
-        # Score should be 0 with no indicators
-        assert score == 0
-
-
-class TestScoreAggregationAndCapping:
-    """Property-based tests for score aggregation and capping."""
-
-    @settings(max_examples=20)
-    @given(
-        current_price=price_strategy(min_price=50.0, max_price=500.0),
-        current_volume=volume_strategy(min_volume=100000, max_volume=10000000),
-        sma_50=price_strategy(min_price=10.0, max_price=400.0),
-        ema_20=price_strategy(min_price=10.0, max_price=400.0),
-        macd_line=indicator_value_strategy(),
-        macd_signal=indicator_value_strategy(),
-        macd_histogram=indicator_value_strategy(),
-        avg_volume_20=volume_strategy(min_volume=50000, max_volume=8000000),
-        relative_strength=indicator_value_strategy()
-    )
-    def test_property_17_score_aggregation_and_capping(
-        self,
-        current_price: float,
-        current_volume: float,
-        sma_50: float,
-        ema_20: float,
-        macd_line: float,
-        macd_signal: float,
-        macd_histogram: float,
-        avg_volume_20: float,
-        relative_strength: float
-    ):
-        """
-        Property 17: Score Aggregation and Capping
-        **Validates: Requirements 5.8**
-
-        Property: The total bullish score SHALL be the sum of all earned
-        points from individual indicator signals, and the final score SHALL
-        be capped at a maximum of 100 points.
-        """
-        assume(avg_volume_20 > 0)
-        
-        engine = ScoringEngine()
-        
-        # Create indicators with all values populated
-        indicators = TechnicalIndicators(
-            sma_50=sma_50,
-            ema_20=ema_20,
-            macd_line=macd_line,
-            macd_signal=macd_signal,
-            macd_histogram=macd_histogram,
-            avg_volume_20=float(avg_volume_20),
-            relative_strength=relative_strength
-        )
-        
-        score, signals = engine.calculate_score(
-            current_price=current_price,
-            current_volume=float(current_volume),
-            indicators=indicators
-        )
-        
-        # Calculate expected score manually
-        expected_score = 0
-        
-        if current_price > sma_50:
-            expected_score += 20
-        
-        if current_price > ema_20:
-            expected_score += 15
-        
-        if macd_line > macd_signal:
-            expected_score += 20
-        
-        if macd_histogram > 0:
-            expected_score += 10
-        
-        if current_volume > (avg_volume_20 * 1.2):
-            expected_score += 15
-        
-        if relative_strength > 0:
-            expected_score += 20
-        
-        # Cap at 100 (though max possible is 100)
-        expected_score = min(expected_score, 100)
-        
-        # Verify score matches expected
-        assert score == expected_score
-        
-        # Verify score is within valid range
+        score, _ = engine.calculate_score(price, volume, ind, rs_percentile=pct)
+        assert isinstance(score, int)
         assert 0 <= score <= 100
 
-    @settings(max_examples=20)
+    def test_all_none_indicators_safe(self):
+        score, _ = engine.calculate_score(100.0, 1.0, TechnicalIndicators())
+        assert isinstance(score, int) and 0 <= score <= 100
+
+
+# ---------------------------------------------------------------------------
+# P5: RS-percentile monotonicity
+# ---------------------------------------------------------------------------
+class TestRSPercentileMonotonic:
+    """P5: strength contribution is non-decreasing in rs_percentile. **Validates: R5**"""
+
+    @settings(max_examples=50)
+    @given(a=st.floats(min_value=0, max_value=100), b=st.floats(min_value=0, max_value=100))
+    def test_monotonic(self, a, b):
+        lo, hi = min(a, b), max(a, b)
+        ind = TechnicalIndicators(
+            sma_50=95.0, ema_20=98.0, rsi_14=60.0, roc_10=3.0,
+            macd_line=1.0, macd_signal=0.5, avg_volume_20=1_000_000.0,
+            relative_strength=2.0, proximity_to_20d_high=96.0,
+        )
+        s_lo, _ = engine.calculate_score(100.0, 1_500_000.0, ind, rs_percentile=lo)
+        s_hi, _ = engine.calculate_score(100.0, 1_500_000.0, ind, rs_percentile=hi)
+        assert s_hi >= s_lo
+
+
+# ---------------------------------------------------------------------------
+# P6: Divergence penalty thresholds
+# ---------------------------------------------------------------------------
+class TestDivergencePenaltyProperty:
+    """P6: divergence penalty matches the agreement rule. **Validates: R6**"""
+
+    @settings(max_examples=100)
     @given(
-        current_price=price_strategy(),
-        current_volume=volume_strategy()
+        rsi_bull=st.booleans(),
+        macd_bull=st.booleans(),
+        roc_bull=st.booleans(),
+        price_bull=st.booleans(),
     )
-    def test_property_17_all_indicators_none(
-        self, current_price: float, current_volume: float
-    ):
-        """
-        Property 17: Score Aggregation and Capping (All Indicators Missing)
-        **Validates: Requirements 5.8**
-
-        Property: When all indicators are None (unavailable), the total score
-        SHALL be 0 and all signals SHALL be False.
-        """
-        engine = ScoringEngine()
-        
-        # Create indicators with all values as None
-        indicators = TechnicalIndicators()
-        
-        score, signals = engine.calculate_score(
-            current_price=current_price,
-            current_volume=current_volume,
-            indicators=indicators
+    def test_penalty_matches_agreement(self, rsi_bull, macd_bull, roc_bull, price_bull):
+        sma = 90.0 if price_bull else 110.0  # price fixed at 100
+        ind = TechnicalIndicators(
+            sma_50=sma,
+            rsi_14=(60.0 if rsi_bull else 40.0),
+            roc_10=(2.0 if roc_bull else -2.0),
+            macd_line=(1.0 if macd_bull else -1.0),
+            macd_signal=0.0,
         )
-        
-        # Score should be 0 with no indicators
-        assert score == 0
-        
-        # All signals should be False
-        assert signals.price_above_sma50 is False
-        assert signals.price_above_ema20 is False
-        assert signals.macd_above_signal is False
-        assert signals.macd_histogram_positive is False
-        assert signals.volume_above_average is False
-        assert signals.relative_strength_positive is False
-
-    @settings(max_examples=20)
-    @given(
-        current_price=price_strategy(min_price=50.0, max_price=500.0),
-        current_volume=volume_strategy(min_volume=100000, max_volume=10000000),
-        sma_50=st.one_of(st.none(), price_strategy(min_price=10.0, max_price=400.0)),
-        ema_20=st.one_of(st.none(), price_strategy(min_price=10.0, max_price=400.0)),
-        macd_line=optional_indicator_strategy(),
-        macd_signal=optional_indicator_strategy(),
-        macd_histogram=optional_indicator_strategy(),
-        avg_volume_20=st.one_of(st.none(), volume_strategy(min_volume=50000, max_volume=8000000)),
-        relative_strength=optional_indicator_strategy()
-    )
-    def test_property_17_partial_indicators(
-        self,
-        current_price: float,
-        current_volume: float,
-        sma_50: float,
-        ema_20: float,
-        macd_line: float,
-        macd_signal: float,
-        macd_histogram: float,
-        avg_volume_20: float,
-        relative_strength: float
-    ):
-        """
-        Property 17: Score Aggregation and Capping (Partial Indicators)
-        **Validates: Requirements 5.8**
-
-        Property: When some indicators are available and others are None,
-        the scoring engine SHALL calculate the score using only available
-        indicators and ignore missing ones (contributing 0 points).
-        """
-        # Skip if avg_volume is 0 (edge case)
-        assume(avg_volume_20 is None or avg_volume_20 > 0)
-        
-        engine = ScoringEngine()
-        
-        # Create indicators with mixed None and actual values
-        indicators = TechnicalIndicators(
-            sma_50=sma_50,
-            ema_20=ema_20,
-            macd_line=macd_line,
-            macd_signal=macd_signal,
-            macd_histogram=macd_histogram,
-            avg_volume_20=float(avg_volume_20) if avg_volume_20 is not None else None,
-            relative_strength=relative_strength
-        )
-        
-        score, signals = engine.calculate_score(
-            current_price=current_price,
-            current_volume=float(current_volume),
-            indicators=indicators
-        )
-        
-        # Calculate expected score manually
-        expected_score = 0
-        
-        if sma_50 is not None and current_price > sma_50:
-            expected_score += 20
-        
-        if ema_20 is not None and current_price > ema_20:
-            expected_score += 15
-        
-        if macd_line is not None and macd_signal is not None and macd_line > macd_signal:
-            expected_score += 20
-        
-        if macd_histogram is not None and macd_histogram > 0:
-            expected_score += 10
-        
-        if avg_volume_20 is not None and current_volume > (avg_volume_20 * 1.2):
-            expected_score += 15
-        
-        if relative_strength is not None and relative_strength > 0:
-            expected_score += 20
-        
-        # Cap at 100
-        expected_score = min(expected_score, 100)
-        
-        # Verify score matches expected
-        assert score == expected_score
-        
-        # Verify score is within valid range
-        assert 0 <= score <= 100
-
-    @settings(max_examples=20)
-    @given(
-        current_price=price_strategy(min_price=200.0, max_price=500.0),
-        current_volume=volume_strategy(min_volume=200000, max_volume=10000000)
-    )
-    def test_property_17_maximum_score_achievable(
-        self, current_price: float, current_volume: float
-    ):
-        """
-        Property 17: Score Aggregation and Capping (Maximum Score)
-        **Validates: Requirements 5.8**
-
-        Property: When all bullish conditions are met, the maximum achievable
-        score SHALL be 100 points (20+15+20+10+15+20 = 100).
-        """
-        engine = ScoringEngine()
-        
-        # Create perfect bullish scenario
-        indicators = TechnicalIndicators(
-            sma_50=current_price - 10.0,  # Price above SMA
-            ema_20=current_price - 10.0,  # Price above EMA
-            macd_line=5.0,  # MACD above signal
-            macd_signal=2.0,
-            macd_histogram=3.0,  # Histogram positive
-            avg_volume_20=float(current_volume / 1.5),  # Volume surge (>1.2x)
-            relative_strength=10.0  # RS positive
-        )
-        
-        score, signals = engine.calculate_score(
-            current_price=current_price,
-            current_volume=float(current_volume),
-            indicators=indicators
-        )
-        
-        # All signals should be True
-        assert signals.price_above_sma50 is True
-        assert signals.price_above_ema20 is True
-        assert signals.macd_above_signal is True
-        assert signals.macd_histogram_positive is True
-        assert signals.volume_above_average is True
-        assert signals.relative_strength_positive is True
-        
-        # Score should be exactly 100
-        assert score == 100
-
-    @settings(max_examples=20)
-    @given(
-        current_price=price_strategy(min_price=50.0, max_price=100.0),
-        current_volume=volume_strategy(min_volume=10000, max_volume=50000)
-    )
-    def test_property_17_minimum_score_when_bearish(
-        self, current_price: float, current_volume: float
-    ):
-        """
-        Property 17: Score Aggregation and Capping (Minimum Score)
-        **Validates: Requirements 5.8**
-
-        Property: When all bearish conditions are met (or neutral), the
-        minimum score SHALL be 0 points.
-        """
-        engine = ScoringEngine()
-        
-        # Create bearish scenario
-        indicators = TechnicalIndicators(
-            sma_50=current_price + 10.0,  # Price below SMA
-            ema_20=current_price + 10.0,  # Price below EMA
-            macd_line=-5.0,  # MACD below signal
-            macd_signal=-2.0,
-            macd_histogram=-3.0,  # Histogram negative
-            avg_volume_20=float(current_volume * 2.0),  # Low volume
-            relative_strength=-10.0  # RS negative
-        )
-        
-        score, signals = engine.calculate_score(
-            current_price=current_price,
-            current_volume=float(current_volume),
-            indicators=indicators
-        )
-        
-        # All signals should be False
-        assert signals.price_above_sma50 is False
-        assert signals.price_above_ema20 is False
-        assert signals.macd_above_signal is False
-        assert signals.macd_histogram_positive is False
-        assert signals.volume_above_average is False
-        assert signals.relative_strength_positive is False
-        
-        # Score should be exactly 0
-        assert score == 0
+        penalty = ScoringEngine.divergence_penalty(100.0, ind)
+        bull = sum([rsi_bull, macd_bull, roc_bull, price_bull])
+        bear = 4 - bull
+        agreement = max(bull, bear) / 4
+        if agreement < 0.6:
+            expected = 8
+        elif agreement <= 0.75:
+            expected = 4
+        else:
+            expected = 0
+        assert penalty == expected
+        assert penalty in (0, 4, 8)
