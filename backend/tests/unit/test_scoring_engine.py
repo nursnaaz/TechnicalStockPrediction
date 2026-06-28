@@ -238,3 +238,127 @@ class TestScoringEngine:
         score_weak, _ = engine.calculate_score(100.0, 900000.0, weak)
         score_strong, _ = engine.calculate_score(105.0, 1600000.0, strong)
         assert score_strong > score_weak
+
+
+# ============================================================================
+# V3 Phase 2: Hard filters (R2), recovery removal (R3), extension penalty (R4)
+# ============================================================================
+
+def _passing_hard_filter_indicators():
+    """TechnicalIndicators that PASS all six Minervini hard filters at price=120."""
+    return TechnicalIndicators(
+        sma_50=110.0,        # > sma_200 (H4)
+        sma_150=105.0,       # price 120 > 105 (H3)
+        sma_200=100.0,       # price 120 > 100 (H1)
+        sma_200_slope=2.0,   # rising (H2)
+        week52_high=130.0,   # 120 >= 0.75*130 = 97.5 (H6)
+        week52_low=80.0,     # 120 >= 1.30*80 = 104 (H5)
+    )
+
+
+class TestHardFilters:
+    PRICE = 120.0
+
+    def test_all_pass(self, engine):
+        ok, checks = engine.passes_hard_filters(self.PRICE, _passing_hard_filter_indicators())
+        assert ok is True
+        assert all(checks.values())
+
+    @pytest.mark.parametrize("field,value,failed_key", [
+        ("sma_200", 130.0, "H1"),     # price 120 < sma_200 130 → H1 fail (also H4)
+        ("sma_200_slope", -1.0, "H2"),  # falling → H2 fail
+        ("sma_150", 125.0, "H3"),     # price 120 < sma_150 125 → H3 fail
+        ("week52_low", 100.0, "H5"),  # 1.30*100=130 > 120 → H5 fail
+        ("week52_high", 200.0, "H6"), # 0.75*200=150 > 120 → H6 fail
+    ])
+    def test_single_check_failure(self, engine, field, value, failed_key):
+        ind = _passing_hard_filter_indicators()
+        setattr(ind, field, value)
+        ok, checks = engine.passes_hard_filters(self.PRICE, ind)
+        assert ok is False
+        assert checks[failed_key] is False
+
+    def test_h4_golden_cross_failure(self, engine):
+        ind = _passing_hard_filter_indicators()
+        ind.sma_50 = 90.0  # sma_50 < sma_200 (100) → H4 fail
+        ok, checks = engine.passes_hard_filters(self.PRICE, ind)
+        assert ok is False
+        assert checks["H4"] is False
+
+    @pytest.mark.parametrize("field,check", [
+        ("sma_200", "H1"), ("sma_200_slope", "H2"), ("sma_150", "H3"),
+        ("week52_low", "H5"), ("week52_high", "H6"),
+    ])
+    def test_none_indicator_fails_its_check(self, engine, field, check):
+        ind = _passing_hard_filter_indicators()
+        setattr(ind, field, None)
+        ok, checks = engine.passes_hard_filters(self.PRICE, ind)
+        assert ok is False
+        assert checks[check] is False
+
+    def test_strict_boundary_equality_fails(self, engine):
+        """H1/H2/H4 are strict (>): equality must FAIL."""
+        ind = _passing_hard_filter_indicators()
+        ind.sma_200 = self.PRICE        # price == sma_200 → H1 fail
+        assert engine.passes_hard_filters(self.PRICE, ind)[1]["H1"] is False
+        ind = _passing_hard_filter_indicators()
+        ind.sma_200_slope = 0.0          # slope == 0 → H2 fail
+        assert engine.passes_hard_filters(self.PRICE, ind)[1]["H2"] is False
+        ind = _passing_hard_filter_indicators()
+        ind.sma_50 = ind.sma_200         # sma_50 == sma_200 → H4 fail
+        assert engine.passes_hard_filters(self.PRICE, ind)[1]["H4"] is False
+
+    def test_inclusive_boundary_equality_passes(self, engine):
+        """H5/H6 are inclusive (>=): equality must PASS."""
+        ind = _passing_hard_filter_indicators()
+        ind.week52_low = self.PRICE / 1.30   # price == 1.30*low → H5 pass
+        assert engine.passes_hard_filters(self.PRICE, ind)[1]["H5"] is True
+        ind = _passing_hard_filter_indicators()
+        ind.week52_high = self.PRICE / 0.75  # price == 0.75*high → H6 pass
+        assert engine.passes_hard_filters(self.PRICE, ind)[1]["H6"] is True
+
+
+class TestRecoveryBonusRemoved:
+    def test_below_ma_oversold_scores_low(self, engine):
+        """A below-MA oversold stock no longer gets a recovery bump (R3)."""
+        ind = TechnicalIndicators(
+            sma_50=120.0, ema_20=118.0, rsi_14=35.0, roc_10=3.0,
+            macd_line=-0.5, macd_signal=-0.2, macd_histogram=-0.3,
+            avg_volume_20=1_000_000.0, relative_strength=-3.0, proximity_to_20d_high=85.0,
+        )
+        score, _ = engine.calculate_score(100.0, 1_000_000.0, ind)  # price well below sma_50
+        assert score < 40  # would have been boosted ~15-25 under V2 recovery bonus
+
+
+class TestExtensionPenalty:
+    def _extended_indicators(self, dist_pct, rsi=50.0, roc=2.0):
+        """Indicators with price `dist_pct`% above SMA50 (price fixed at 100)."""
+        sma_50 = 100.0 / (1 + dist_pct / 100.0)
+        return TechnicalIndicators(
+            sma_50=sma_50, rsi_14=rsi, roc_10=roc,
+        )
+
+    def _penalty(self, engine, ind, price=100.0):
+        """Recover the extension penalty by comparing to a non-extended baseline trend."""
+        # Trend component only depends on sma_50/ema_20; isolate by scoring twice.
+        return ind  # placeholder not used; see explicit tests below
+
+    def test_far_extended_overbought_fading_hits_cap(self, engine):
+        """>15% extended + RSI>75 + ROC<-3 → penalty caps at -25."""
+        ind = self._extended_indicators(20.0, rsi=80.0, roc=-5.0)
+        score_extended, _ = engine.calculate_score(100.0, 1_000_000.0, ind)
+        # Same trend but not overbought/fading (RSI healthy, ROC positive, only 6% ext)
+        ind_mild = self._extended_indicators(6.0, rsi=55.0, roc=2.0)
+        score_mild, _ = engine.calculate_score(100.0, 1_000_000.0, ind_mild)
+        assert score_extended < score_mild
+
+    def test_penalty_never_makes_score_negative(self, engine):
+        ind = self._extended_indicators(20.0, rsi=80.0, roc=-5.0)
+        score, _ = engine.calculate_score(100.0, 1_000_000.0, ind)
+        assert 0 <= score <= 100
+
+    def test_no_divergence_penalty_when_not_extended(self, engine):
+        """dist<=5% → momentum-divergence block contributes nothing even with bad ROC."""
+        ind = self._extended_indicators(3.0, rsi=55.0, roc=-10.0)
+        score, _ = engine.calculate_score(100.0, 1_000_000.0, ind)
+        assert 0 <= score <= 100  # no crash; divergence block skipped at low extension

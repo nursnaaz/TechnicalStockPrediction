@@ -160,7 +160,15 @@ class ScanOrchestrator:
                     # Get current price and volume
                     current_price = float(stock_data.prices[-1])
                     current_volume = float(stock_data.volumes[-1])
-                    
+
+                    # V3 R2: Minervini hard filters — any fail → exclude (score 0).
+                    # This is a VALID exclusion, not a fetch error.
+                    passed, _checks = self.scoring_engine.passes_hard_filters(current_price, indicators)
+                    if not passed:
+                        failed = [k for k, ok in _checks.items() if not ok]
+                        logger.info(f"{ticker} excluded by hard filters: failed {failed}")
+                        continue
+
                     # Calculate enhanced score (with Stage 2 + Pattern detection)
                     bullish_score, signals, stage_result, pattern_result = \
                         self.scoring_engine.calculate_enhanced_score(

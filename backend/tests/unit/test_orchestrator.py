@@ -69,6 +69,8 @@ def mock_scoring_engine():
     engine = Mock(spec=ScoringEngine)
     engine.calculate_score = Mock()
     engine.calculate_enhanced_score = Mock()
+    # V3: default the hard-filter gate to PASS so existing pipeline tests proceed.
+    engine.passes_hard_filters = Mock(return_value=(True, {f"H{i}": True for i in range(1, 7)}))
     return engine
 
 
@@ -546,4 +548,30 @@ class TestV3RegimeGate:
         assert response.ranked_tickers == []
         assert response.metadata.ticker_count == 0
         # No per-ticker scoring in a bearish market
+        mock_scoring_engine.calculate_enhanced_score.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_hard_filter_failure_excludes_ticker_without_error(
+        self,
+        orchestrator,
+        mock_api_client,
+        mock_universe_builder,
+        mock_regime_analyzer,
+        mock_indicator_calc,
+        mock_scoring_engine,
+        mock_ranking_service,
+        sample_stock_data,
+        sample_indicators,
+    ):
+        """A ticker failing hard filters is excluded → empty 200 result, not a 500 error."""
+        mock_universe_builder.build_universe.return_value = ["AAPL"]
+        mock_regime_analyzer.analyze_regime.return_value = _regime(MarketRegime.BULLISH, 65)
+        mock_api_client.fetch_stock_data.return_value = sample_stock_data
+        mock_indicator_calc.calculate_all.return_value = sample_indicators
+        mock_scoring_engine.passes_hard_filters.return_value = (False, {"H1": False})
+        mock_ranking_service.rank_tickers.side_effect = lambda x: x
+
+        response = await orchestrator.execute_scan(ScanRequest(tickers=["AAPL"]))
+
+        assert response.ranked_tickers == []          # excluded, valid empty result
         mock_scoring_engine.calculate_enhanced_score.assert_not_called()

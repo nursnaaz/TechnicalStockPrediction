@@ -29,6 +29,42 @@ class ScoringEngine:
         self.stage_classifier = StageClassifier()
         self.pattern_detector = PatternDetector()
 
+    def passes_hard_filters(
+        self,
+        current_price: float,
+        indicators: TechnicalIndicators,
+    ) -> tuple[bool, dict[str, bool]]:
+        """
+        Minervini Trend Template hard filters (V3, R2).
+
+        Six binary pass/fail checks. If ANY fails, the caller must treat the stock
+        as score 0 (excluded). A missing indicator (None) for a check fails that
+        check conservatively.
+
+        H1: current_price > SMA(200)
+        H2: SMA(200) slope > 0 (rising over last 20 bars)
+        H3: current_price > SMA(150)
+        H4: SMA(50) > SMA(200) (golden cross)
+        H5: current_price >= 1.30 * 52-week low
+        H6: current_price >= 0.75 * 52-week high
+
+        Returns:
+            (all_pass, per_check) where per_check maps "H1".."H6" -> bool.
+        """
+        checks: dict[str, bool] = {
+            "H1": indicators.sma_200 is not None and current_price > indicators.sma_200,
+            "H2": indicators.sma_200_slope is not None and indicators.sma_200_slope > 0,
+            "H3": indicators.sma_150 is not None and current_price > indicators.sma_150,
+            "H4": (
+                indicators.sma_50 is not None
+                and indicators.sma_200 is not None
+                and indicators.sma_50 > indicators.sma_200
+            ),
+            "H5": indicators.week52_low is not None and current_price >= 1.30 * indicators.week52_low,
+            "H6": indicators.week52_high is not None and current_price >= 0.75 * indicators.week52_high,
+        }
+        return all(checks.values()), checks
+
     def calculate_score(
         self,
         current_price: float,
@@ -97,75 +133,47 @@ class ScoringEngine:
 
         total_score += min(trend_score, 20)
 
-        # === RECOVERY BONUS (0-25 pts) ===
-        # Catches oversold bounces — stocks below MAs but showing recovery signals
-        # This is the PRIMARY mechanism for reducing false negatives in pullbacks
-        recovery_score = 0.0
-        if indicators.sma_50 is not None and indicators.sma_50 > 0:
-            dist_from_sma50 = ((current_price - indicators.sma_50) / indicators.sma_50) * 100
-            # Only apply recovery logic if stock is BELOW SMA50
-            if dist_from_sma50 < 0 and dist_from_sma50 > -30:
-                # The further below SMA50, the more potential for bounce (contrarian)
-                # But only if there's some recovery signal
-                
-                # RSI recovery signal (0-10 pts)
-                if indicators.rsi_14 is not None:
-                    if 30 <= indicators.rsi_14 <= 45:
-                        recovery_score += 10  # Recovering from oversold - strongest signal
-                    elif indicators.rsi_14 < 30:
-                        recovery_score += 7   # Deeply oversold - high bounce potential
-                    elif 45 < indicators.rsi_14 <= 55:
-                        recovery_score += 5   # Neutral but below MA - building
-                
-                # Positive ROC while below MA = early recovery momentum (0-8 pts)
-                if indicators.roc_10 is not None:
-                    if indicators.roc_10 > 5:
-                        recovery_score += 8   # Strong bounce underway
-                    elif indicators.roc_10 > 2:
-                        recovery_score += 6   # Good recovery momentum
-                    elif indicators.roc_10 > 0:
-                        recovery_score += 4   # Price turning up
-                    elif indicators.roc_10 > -2:
-                        recovery_score += 2   # Stabilizing (not falling anymore)
-                
-                # Proximity to SMA50 from below (0-7 pts)
-                if dist_from_sma50 > -3:
-                    recovery_score += 7   # Very close to reclaiming - breakout imminent
-                elif dist_from_sma50 > -7:
-                    recovery_score += 5   # Moderate pullback - healthy
-                elif dist_from_sma50 > -12:
-                    recovery_score += 3   # Deeper pullback
-                elif dist_from_sma50 > -20:
-                    recovery_score += 1   # Far below but not catastrophic
+        # === RECOVERY BONUS — REMOVED in V3 (R3) ===
+        # The V2 recovery bonus rewarded stocks BELOW their moving averages, which
+        # directly contradicts the Minervini hard filters (price must be ABOVE SMA150/200).
+        # It was a primary false-positive source, so it is intentionally gone. We do not
+        # bottom-fish: a stock must prove its uptrend (pass the hard filters) to score.
 
-        total_score += min(recovery_score, 25)
-
-        # === EXTENSION PENALTY (0 to -15 pts) ===
-        # Penalizes stocks that are TOO far above their MAs (exhausted/overbought)
-        # These are the false positives: KO, PG, JNJ at peak with all signals TRUE
+        # === EXTENSION PENALTY (0 to -25 pts) — V3 (R4) ===
+        # Penalizes stocks too far above their MAs (exhausted/overbought) and those
+        # showing momentum divergence (price extended while ROC fades). Cap raised
+        # from -15 to -25 so peak defensives (KO/PG) drop below threshold.
         extension_penalty = 0.0
         if indicators.sma_50 is not None and indicators.sma_50 > 0:
             dist_above = ((current_price - indicators.sma_50) / indicators.sma_50) * 100
+
+            # Distance above SMA50 (0-10)
             if dist_above > 15:
-                extension_penalty += 8   # Very extended above SMA50
+                extension_penalty += 10
             elif dist_above > 10:
-                extension_penalty += 5   # Extended
-            
-            # RSI overbought penalty
+                extension_penalty += 7
+            elif dist_above > 7:
+                extension_penalty += 4
+
+            # RSI overbought (0-8)
             if indicators.rsi_14 is not None:
                 if indicators.rsi_14 > 75:
-                    extension_penalty += 7  # Overbought - likely to pull back
+                    extension_penalty += 8
                 elif indicators.rsi_14 > 70:
-                    extension_penalty += 4  # Getting overbought
-            
-            # Negative ROC despite being above MAs = momentum fading
-            if indicators.roc_10 is not None and dist_above > 5:
-                if indicators.roc_10 < -2:
-                    extension_penalty += 5  # Losing momentum while extended
-                elif indicators.roc_10 < 0:
-                    extension_penalty += 2  # Slowing down
+                    extension_penalty += 5
+                elif indicators.rsi_14 > 65:
+                    extension_penalty += 2
 
-        total_score -= min(extension_penalty, 15)
+            # Momentum divergence: price extended (>5% above SMA50) but ROC fading (0-7)
+            if indicators.roc_10 is not None and dist_above > 5:
+                if indicators.roc_10 < -3:
+                    extension_penalty += 7
+                elif indicators.roc_10 < -1:
+                    extension_penalty += 5
+                elif indicators.roc_10 < 0:
+                    extension_penalty += 3
+
+        total_score -= min(extension_penalty, 25)
 
         # === COMPONENT 2: MOMENTUM (0-20 pts) ===
         # Is momentum building or fading?
@@ -284,8 +292,8 @@ class ScoringEngine:
 
         total_score += min(confirmation_score, 20)
 
-        # === FINAL SCORE ===
-        final_score = int(min(round(total_score), 100))
+        # === FINAL SCORE === (clamped to [0, 100] — P8; penalties can drive it negative)
+        final_score = int(min(max(round(total_score), 0), 100))
 
         # Create signals object (backward-compatible boolean signals)
         signals = IndicatorSignals(
