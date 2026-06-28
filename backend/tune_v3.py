@@ -12,7 +12,9 @@ hard-filter-passing ticker it records score + regime + the actual 30-day outcome
 Run: python tune_v3.py            (writes V3_TUNING_REPORT.md)
 """
 import asyncio
+import csv
 import os
+import sys
 from datetime import datetime, timedelta
 from statistics import mean
 
@@ -180,8 +182,153 @@ def report(records):
     print(f"Saved -> {out}")
 
 
+CSV_PATH = os.path.join(HERE, '..', 'V3_tuning_data.csv')
+
+
+def save_csv(records):
+    with open(CSV_PATH, 'w', newline='') as f:
+        w = csv.DictWriter(f, fieldnames=['date', 'ticker', 'tradeable', 'score', 'max_gain', 'ret'])
+        w.writeheader()
+        w.writerows(records)
+    print(f"Saved raw data -> {CSV_PATH}")
+
+
+def load_csv():
+    records = []
+    with open(CSV_PATH) as f:
+        for r in csv.DictReader(f):
+            records.append({'date': r['date'], 'ticker': r['ticker'],
+                            'tradeable': r['tradeable'] == 'True',
+                            'score': int(r['score']), 'max_gain': float(r['max_gain']),
+                            'ret': float(r['ret'])})
+    return records
+
+
+def html_report(records):
+    """Presentable, self-contained HTML report with per-stock detail per date."""
+    def precision(rows, g=5):
+        return sum(1 for r in rows if r['max_gain'] >= g) / len(rows) if rows else 0.0
+    def gcolor(v, lo, hi):  # green->red gradient helper
+        v = max(lo, min(hi, v)); t = (v - lo) / (hi - lo) if hi > lo else 0
+        r = int(220 - 140 * t); g = int(80 + 140 * t)
+        return f"rgb({r},{g},90)"
+
+    css = """body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f5f7fa;color:#1a2b3c}
+    .wrap{max-width:1100px;margin:0 auto;padding:32px}
+    h1{color:#0b3d66}h2{color:#0b5394;border-bottom:2px solid #e0e6ee;padding-bottom:6px;margin-top:36px}
+    .sub{color:#5b6b7b;margin-top:-8px}
+    table{border-collapse:collapse;width:100%;margin:12px 0;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+    th,td{padding:8px 12px;text-align:center;border:1px solid #e6ebf1;font-size:14px}
+    th{background:#0b5394;color:#fff;font-weight:600}
+    .kpis{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0}
+    .kpi{background:#fff;border-radius:10px;padding:16px 22px;box-shadow:0 1px 3px rgba(0,0,0,.08);min-width:150px}
+    .kpi .v{font-size:28px;font-weight:700;color:#0b3d66}.kpi .l{color:#5b6b7b;font-size:13px}
+    .win{color:#137333;font-weight:600}.loss{color:#a50e0e;font-weight:600}
+    .card{background:#fff;border-radius:10px;padding:16px 20px;margin:14px 0;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+    .badge{display:inline-block;padding:2px 10px;border-radius:12px;color:#fff;font-size:12px;font-weight:600}
+    .note{background:#fff7e6;border-left:4px solid #f0a500;padding:12px 16px;border-radius:6px;margin:12px 0}
+    details summary{cursor:pointer;font-weight:600;color:#0b5394}"""
+
+    buys65 = [r for r in records if r['tradeable'] and r['score'] >= 65]
+    buys80 = [r for r in records if r['tradeable'] and r['score'] >= 80]
+    port = lambda rows: (mean(r['ret'] for r in rows) if rows else 0.0)
+
+    h = [f"<!doctype html><html><head><meta charset='utf-8'><title>V3 Backtest & Tuning Report</title>",
+         f"<style>{css}</style></head><body><div class='wrap'>",
+         "<h1>V3 High-Precision Halal Scanner — Backtest & Tuning Report</h1>",
+         f"<p class='sub'>Full halal universe ({len(set(r['ticker'] for r in records))} stocks) "
+         f"across {len(DATES)} dates ({DATES[0]} … {DATES[-1]}). "
+         f"{len(records)} hard-filter-passing observations with actual 30-day outcomes. "
+         f"Generated {datetime.now():%Y-%m-%d %H:%M}.</p>"]
+
+    # KPIs
+    h.append("<div class='kpis'>")
+    for label, val in [("Observations", f"{len(records)}"),
+                       ("Dates tested", f"{len(DATES)}"),
+                       ("BUY signals (score≥80)", f"{len(buys80)}"),
+                       ("Precision@5% (score≥80)", f"{precision(buys80):.0%}"),
+                       ("Avg 30d return (score≥80)", f"{port(buys80):+.1f}%")]:
+        h.append(f"<div class='kpi'><div class='v'>{val}</div><div class='l'>{label}</div></div>")
+    h.append("</div>")
+
+    # Precision heatmap
+    h.append("<h2>Precision by score threshold × gain(%) threshold</h2>")
+    h.append("<table><tr><th>Score≥</th>" + "".join(f"<th>gain≥{g}%</th>" for g in GAIN_THRESHOLDS) + "<th># signals</th></tr>")
+    for s in SCORE_THRESHOLDS:
+        rows = [r for r in records if r['tradeable'] and r['score'] >= s]
+        cells = ""
+        for g in GAIN_THRESHOLDS:
+            p = precision(rows, g)
+            cells += f"<td style='background:{gcolor(p,0.2,0.8)};color:#fff'>{p:.0%}</td>"
+        h.append(f"<tr><th>{s}</th>{cells}<td>{len(rows)}</td></tr>")
+    h.append("</table>")
+
+    # Portfolio
+    h.append("<h2>Portfolio — invest $1,000 per BUY signal, hold 30 days</h2>")
+    h.append("<table><tr><th>Score≥</th><th># signals</th><th>Precision@5%</th><th>Avg 30d return</th>"
+             "<th>Invested</th><th>Profit</th><th>Profit rate</th></tr>")
+    for s in SCORE_THRESHOLDS:
+        rows = [r for r in records if r['tradeable'] and r['score'] >= s]
+        if not rows:
+            continue
+        avg = port(rows); invested = 1000 * len(rows); profit = sum(1000 * r['ret'] / 100 for r in rows)
+        cls = 'win' if profit >= 0 else 'loss'
+        h.append(f"<tr><th>{s}</th><td>{len(rows)}</td><td>{precision(rows):.0%}</td>"
+                 f"<td class='{cls}'>{avg:+.1f}%</td><td>${invested:,.0f}</td>"
+                 f"<td class='{cls}'>${profit:+,.0f}</td><td class='{cls}'>{profit/invested*100:+.1f}%</td></tr>")
+    h.append("</table>")
+
+    # Per-date detail with per-stock BUYs
+    h.append("<h2>Per-date breakdown (BUYs at score ≥ 65, with each stock's outcome)</h2>")
+    for d in DATES:
+        day = [r for r in records if r['date'] == d]
+        bears = day and not day[0]['tradeable']
+        buys = sorted([r for r in day if r['tradeable'] and r['score'] >= 65], key=lambda x: -x['score'])
+        if bears:
+            h.append(f"<div class='card'><b>{d}</b> &nbsp; <span class='badge' style='background:#a50e0e'>BEARISH — 0 BUYs</span> "
+                     f"(regime gate emitted zero candidates)</div>")
+            continue
+        if not buys:
+            h.append(f"<div class='card'><b>{d}</b> &nbsp; 0 BUYs above threshold</div>")
+            continue
+        p = precision(buys); avg = port(buys)
+        col = 'win' if avg >= 0 else 'loss'
+        rowshtml = "".join(
+            f"<tr><td>{r['ticker']}</td><td>{r['score']}</td>"
+            f"<td class='{'win' if r['ret']>=0 else 'loss'}'>{r['ret']:+.1f}%</td>"
+            f"<td>{r['max_gain']:+.1f}%</td><td>{'✅ win' if r['max_gain']>=5 else '❌'}</td></tr>"
+            for r in buys)
+        h.append(
+            f"<div class='card'><b>{d}</b> &nbsp; {len(buys)} BUYs &nbsp;|&nbsp; "
+            f"precision@5% <b>{p:.0%}</b> &nbsp;|&nbsp; avg 30d return <span class='{col}'>{avg:+.1f}%</span>"
+            f"<details><summary>Show {len(buys)} stocks</summary>"
+            f"<table><tr><th>Ticker</th><th>Score</th><th>30d return</th><th>Max gain</th><th>Win@5%</th></tr>"
+            f"{rowshtml}</table></details></div>")
+
+    h.append("<div class='note'><b>How to read this:</b> a BUY = market not bearish AND score ≥ threshold. "
+             "“30d return” = buy at the date's close, sell at the close 30 trading days later. "
+             "“Max gain” = best intraday gain reached in the window (an upper bound if you sold at the peak). "
+             "“Win@5%” = the stock reached at least +5%. Profit rate = total profit / total invested.</div>")
+    h.append("<div class='note'><b>Honest caveats:</b> results are net-positive but modest with high "
+             "month-to-month variance (e.g. 2024-11 strong vs 2025-03 weak). This is buy-and-hold to the "
+             "30-day close; a target/stop exit would change the numbers. The regime gate is broad-market, "
+             "so it can miss stock-specific weakness in an overall-bullish month.</div>")
+    h.append("</div></body></html>")
+
+    out = os.path.join(HERE, '..', 'V3_TUNING_REPORT.html')
+    open(out, 'w').write("\n".join(h))
+    print(f"Saved HTML report -> {out}")
+
+
 async def main():
-    report(await collect())
+    if '--from-csv' in sys.argv:
+        records = load_csv()
+        print(f"Loaded {len(records)} records from CSV")
+    else:
+        records = await collect()
+        save_csv(records)
+    report(records)
+    html_report(records)
 
 
 if __name__ == '__main__':
