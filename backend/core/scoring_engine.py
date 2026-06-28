@@ -212,6 +212,22 @@ class ScoringEngine:
 
         total_score -= min(extension_penalty, 25)
 
+        # === CLIMAX / EXHAUSTION PENALTY (0 to -12 pts) — V3.1 (precision fix) ===
+        # FP research: false positives cluster as "buying the top of an extended,
+        # overbought move" — at/near the 20-day high AND overbought AND extended above
+        # SMA50. This penalises chasing exhausted breakouts (buy pullbacks, not tops).
+        climax_penalty = 0.0
+        if (indicators.proximity_to_20d_high is not None
+                and indicators.rsi_14 is not None
+                and indicators.sma_50 is not None and indicators.sma_50 > 0):
+            dist_above_sma50 = ((current_price - indicators.sma_50) / indicators.sma_50) * 100
+            at_high = indicators.proximity_to_20d_high >= 98
+            if at_high and indicators.rsi_14 >= 68 and dist_above_sma50 >= 8:
+                climax_penalty = 12   # full exhaustion signature (at-high + overbought + extended)
+            elif at_high and indicators.rsi_14 >= 70:
+                climax_penalty = 6    # overbought right at the high
+        total_score -= climax_penalty
+
         # === COMPONENT 2: MOMENTUM (0-20 pts) ===
         # Is momentum building or fading?
         momentum_score = 0.0

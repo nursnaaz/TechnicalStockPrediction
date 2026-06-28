@@ -59,6 +59,26 @@ Expected (per V3 plan): **0 BUYs** (assumed bearish). **Actual: BULLISH regime, 
    2024-03-01 P=41%) — the extension/divergence penalties are not fully neutralising
    late-stage extended names.
 
+## V3.1 — Climax/Exhaustion penalty (precision fix)
+
+**Research (`backend/analyze_fp.py`):** profiling every BUY vs actual 30-day forward
+return showed FPs and TPs are **statistically near-identical** on all indicators
+(score 73.6 vs 74.8, RSI 61.8 vs 62.7, ROC 7.3 vs 7.4, RS-pct 76.5 vs 79.7,
+dist-SMA50 9.4% vs 9.8%). The one real signal: **nearly every BUY sits at its 20-day
+high (prox≈100)** — V3's confirmation component was *rewarding buying tops*. The
+"climax" signature (at-high + RSI≥68 + extended≥8%) removed 11 FPs for 7 TPs.
+
+**Change:** a climax/exhaustion penalty (−6 to −12) for that signature. Validated on
+both sets (kept only because OOS improved too — not overfit):
+
+| Metric | V3 (before) | V3.1 (after) |
+|--------|------------:|-------------:|
+| In-sample precision | 77.8% | **81.5%** |
+| In-sample FP | 14 | **10** |
+| Out-of-sample precision | 55.2% | **56.7%** |
+| Out-of-sample FP | 30 | **26** |
+| Recall (in/out) | 38.9% / 35.6% | 34.9% / 32.7% |
+
 ## Recommendation
 
 Do **not** parameter-tune to these dates (violates anti-overfitting rules). The
