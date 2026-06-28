@@ -455,11 +455,13 @@ Run when ≥2 V3 components are wired together (new `tests/integration/test_v3_p
 Beyond the focused V1–V4 suite, a large-scale backtest reproduces the V2 reporting workflow for V3
 (`backend/generate_report.py` → `backtest_report.html`, `backend/error_analysis.py`):
 
-- **Universe:** full halal list (hundreds — `ALL_HALAL_STOCKS.txt` / `halal_stocks_usa.md`, 371), batched
-  to the 5-concurrent Polygon limit.
+- **Universe:** full halal list (~150+ — `ALL_HALAL_STOCKS.txt` "150+" block and/or the
+  `halal_stocks_usa.md` markdown table's `| Ticker |` column, deduped), batched to the 5-concurrent
+  Polygon limit. (Long-running offline job — thousands of fetches; respect rate limits + cache.)
 - **Dates:** many across regimes (in-sample 5 + OOS 5 + March-2026 control + extra bull/bear/neutral
   months), ideally via `/api/v1/backtest/rolling` (monthly, 2024–2026).
-- **Optimization:** sweep score threshold (50→90) × gain threshold (3%→10%); tabulate
+- **Optimization:** sweep score threshold (50→90) × gain threshold (3%→10%) as **in-memory
+  re-classification** of already-fetched trades (no re-fetch per threshold); tabulate
   precision/recall/F1/portfolio per cell; pick the optimum **on in-sample only**, then report its OOS
   performance (anti-overfit). Confirm regime thresholds 65/75 sit near the in-sample optimum.
 - **Output:** regenerated `backtest_report.html` (per-period confusion matrix, P&L, threshold×gain

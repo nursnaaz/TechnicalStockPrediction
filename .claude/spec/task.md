@@ -221,15 +221,20 @@ parameters per component; no machine learning; if out-of-sample precision <75% �
     backtest that sweeps score/gain thresholds to find the optimal operating point and emits an HTML
     report. (Mirrors V2's `backend/generate_report.py` → `backtest_report.html` and
     `backend/error_analysis.py`.)
-  - **Universe:** run the **full halal list (hundreds of tickers)** from `ALL_HALAL_STOCKS.txt` /
-    `halal_stocks_usa.md` (371 entries), not just the 108-ticker subset. Batch to respect the 5-concurrent
-    Polygon limit; cache per scan.
+  - **Universe:** run the **full halal list (~150+ tickers)** — `ALL_HALAL_STOCKS.txt` (self-described
+    "150+ Major Halal Stocks", comma-separated) and/or the `halal_stocks_usa.md` **markdown table** (parse
+    the `| Ticker |` column; it is a prose+table doc, ~150–180 tickers, not a flat list). Dedupe across
+    sources; do **not** just reuse the 108-ticker subset. Batch to respect the 5-concurrent Polygon limit
+    and cache per scan.
   - **Dates:** cover **many dates across regimes** — at minimum the in-sample 5 (V1), the out-of-sample 5
     (V3), the bearish March-2026 control, plus additional bull/bear/neutral months; ideally use the
     rolling backtest (`/api/v1/backtest/rolling`, monthly) over 2024–2026.
-  - **Threshold/score optimization (V2-style sweep):** for each date/period, sweep the **score
-    threshold** (e.g. 50→90 step 5) and the **gain threshold** (e.g. 3%→10%) and tabulate
-    Precision / Recall / F1 / portfolio return per combination; identify the **optimal** operating point.
+  - **Threshold/score optimization (V2-style sweep):** sweep the **score threshold** (e.g. 50→90 step 5)
+    and the **gain threshold** (e.g. 3%→10%) and tabulate Precision / Recall / F1 / portfolio return per
+    combination; identify the **optimal** operating point.
+    💡 **Efficiency:** the sweep is **pure in-memory re-classification** of trades already returned by the
+    backtest (each trade carries `score` + `max_gain_pct`) — fetch each ticker/date **once**, then
+    re-bucket TP/FP/FN/TN per threshold in memory. **Do NOT re-run backtests or re-fetch per threshold.**
     ⚠️ **anti-overfit:** find the optimum on **in-sample** dates only, then **report its out-of-sample
     performance** — do not pick the threshold that maximizes OOS. Confirm V3's regime thresholds (65
     BULLISH / 75 NEUTRAL) sit near the in-sample optimum; flag if they don't.
@@ -243,6 +248,10 @@ parameters per component; no machine learning; if out-of-sample precision <75% �
   - **Tests:** unit-test the sweep/aggregation math (confusion-matrix counts, precision/recall/F1,
     optimal-point selection) on synthetic trade sets — `tests/backtest/test_report.py`; do not depend on
     live data for the math.
+  - ⚠️ **Runtime/rate-limit caution:** ~150 tickers × many dates ≈ thousands of Polygon fetches — this is
+    a **long-running offline batch job**, not a UI request. Respect Polygon rate limits (the
+    `MAX_CONCURRENT_REQUESTS=5` setting is concurrency, not a per-minute cap); add throttling/retry and
+    rely on the cache. Requires `POLYGON_TOKEN` and a running backend.
   - **Deliverable:** the regenerated `backtest_report.html` + a short written summary of the recommended
     score/gain thresholds and the in-sample/out-of-sample metrics. Share with the user for review.
   - **Definition of done:** report generated, sweep math unit-tested, optimal thresholds documented.
