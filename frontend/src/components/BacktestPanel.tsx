@@ -101,7 +101,9 @@ export default function BacktestPanel() {
   const [selectedPreset, setSelectedPreset] = useState<{label:string,value:string}|null>(null);
 
   // Dynamic thresholds
-  const [scoreThreshold, setScoreThreshold] = useState(50);
+  // Defaults = V3 optimal operating point from tuning (714 trades x 10 dates):
+  // score>=80 gives the best precision (~60% @5%) and best portfolio return (+2.2%/cycle).
+  const [scoreThreshold, setScoreThreshold] = useState(80);
   const [gainThreshold, setGainThreshold] = useState(5);
   const [sortingColumn, setSortingColumn] = useState<{sortingField:string}|undefined>(undefined);
   const [sortingDescending, setSortingDescending] = useState(false);
