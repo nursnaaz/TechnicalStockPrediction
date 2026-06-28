@@ -111,10 +111,11 @@ class TestScoringEngine:
         assert signals.price_above_sma50 is False
 
     def test_gradient_sma50_above_gives_more(self, engine):
-        """Stock above SMA50 should score more than stock below."""
-        indicators = TechnicalIndicators(sma_50=100.0)
-        score_above, _ = engine.calculate_score(105.0, 0, indicators)
-        score_below, _ = engine.calculate_score(99.0, 0, indicators)
+        """Stock above SMA50 should score more than stock far below with no recovery signals."""
+        indicators_above = TechnicalIndicators(sma_50=100.0)
+        indicators_below = TechnicalIndicators(sma_50=100.0)
+        score_above, _ = engine.calculate_score(103.0, 0, indicators_above)
+        score_below, _ = engine.calculate_score(75.0, 0, indicators_below)  # Far below, no RSI/ROC
         assert score_above > score_below
 
     def test_gradient_volume_relaxed(self, engine):

@@ -97,32 +97,75 @@ class ScoringEngine:
 
         total_score += min(trend_score, 20)
 
-        # === RECOVERY BONUS (0-15 pts) ===
+        # === RECOVERY BONUS (0-25 pts) ===
         # Catches oversold bounces — stocks below MAs but showing recovery signals
-        # This is critical for pullback periods where trend scores are low
+        # This is the PRIMARY mechanism for reducing false negatives in pullbacks
         recovery_score = 0.0
         if indicators.sma_50 is not None and indicators.sma_50 > 0:
             dist_from_sma50 = ((current_price - indicators.sma_50) / indicators.sma_50) * 100
-            # Only apply recovery logic if stock is BELOW SMA50 (otherwise trend logic handles it)
-            if dist_from_sma50 < 0 and dist_from_sma50 > -20:
-                # RSI oversold recovery: stock was beaten down but RSI showing life
+            # Only apply recovery logic if stock is BELOW SMA50
+            if dist_from_sma50 < 0 and dist_from_sma50 > -30:
+                # The further below SMA50, the more potential for bounce (contrarian)
+                # But only if there's some recovery signal
+                
+                # RSI recovery signal (0-10 pts)
                 if indicators.rsi_14 is not None:
-                    if 30 <= indicators.rsi_14 <= 50:
-                        recovery_score += 6  # Recovering from oversold
+                    if 30 <= indicators.rsi_14 <= 45:
+                        recovery_score += 10  # Recovering from oversold - strongest signal
                     elif indicators.rsi_14 < 30:
-                        recovery_score += 4  # Still oversold — risky but bounce potential
+                        recovery_score += 7   # Deeply oversold - high bounce potential
+                    elif 45 < indicators.rsi_14 <= 55:
+                        recovery_score += 5   # Neutral but below MA - building
                 
-                # Positive ROC while below MA = early recovery momentum
-                if indicators.roc_10 is not None and indicators.roc_10 > 0:
-                    recovery_score += 5  # Price turning up despite being below MAs
-                    if indicators.roc_10 > 3:
-                        recovery_score += 2  # Strong recovery momentum
+                # Positive ROC while below MA = early recovery momentum (0-8 pts)
+                if indicators.roc_10 is not None:
+                    if indicators.roc_10 > 5:
+                        recovery_score += 8   # Strong bounce underway
+                    elif indicators.roc_10 > 2:
+                        recovery_score += 6   # Good recovery momentum
+                    elif indicators.roc_10 > 0:
+                        recovery_score += 4   # Price turning up
+                    elif indicators.roc_10 > -2:
+                        recovery_score += 2   # Stabilizing (not falling anymore)
                 
-                # Near SMA50 from below = about to reclaim
-                if dist_from_sma50 > -5:
-                    recovery_score += 2  # Close to reclaiming key MA
+                # Proximity to SMA50 from below (0-7 pts)
+                if dist_from_sma50 > -3:
+                    recovery_score += 7   # Very close to reclaiming - breakout imminent
+                elif dist_from_sma50 > -7:
+                    recovery_score += 5   # Moderate pullback - healthy
+                elif dist_from_sma50 > -12:
+                    recovery_score += 3   # Deeper pullback
+                elif dist_from_sma50 > -20:
+                    recovery_score += 1   # Far below but not catastrophic
 
-        total_score += min(recovery_score, 15)
+        total_score += min(recovery_score, 25)
+
+        # === EXTENSION PENALTY (0 to -15 pts) ===
+        # Penalizes stocks that are TOO far above their MAs (exhausted/overbought)
+        # These are the false positives: KO, PG, JNJ at peak with all signals TRUE
+        extension_penalty = 0.0
+        if indicators.sma_50 is not None and indicators.sma_50 > 0:
+            dist_above = ((current_price - indicators.sma_50) / indicators.sma_50) * 100
+            if dist_above > 15:
+                extension_penalty += 8   # Very extended above SMA50
+            elif dist_above > 10:
+                extension_penalty += 5   # Extended
+            
+            # RSI overbought penalty
+            if indicators.rsi_14 is not None:
+                if indicators.rsi_14 > 75:
+                    extension_penalty += 7  # Overbought - likely to pull back
+                elif indicators.rsi_14 > 70:
+                    extension_penalty += 4  # Getting overbought
+            
+            # Negative ROC despite being above MAs = momentum fading
+            if indicators.roc_10 is not None and dist_above > 5:
+                if indicators.roc_10 < -2:
+                    extension_penalty += 5  # Losing momentum while extended
+                elif indicators.roc_10 < 0:
+                    extension_penalty += 2  # Slowing down
+
+        total_score -= min(extension_penalty, 15)
 
         # === COMPONENT 2: MOMENTUM (0-20 pts) ===
         # Is momentum building or fading?
