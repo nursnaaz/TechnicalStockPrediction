@@ -26,10 +26,12 @@ class Config:
     MAX_RETRIES: int = 3
     RETRY_BACKOFF_FACTOR: float = 2.0  # Exponential backoff: 1s, 2s, 4s
 
-    # History window (V3): fetch_stock_data `days` is CALENDAR days. ~365 calendar days
-    # guarantees >= 252 trading bars so SMA(200), the 20-bar SMA200 slope, and 52-week
-    # high/low are all computable for the Minervini hard filters.
-    HISTORY_FETCH_DAYS: int = 365
+    # History window (V3): fetch_stock_data `days` is CALENDAR days. Empirically 365
+    # calendar days yields only ~250 trading bars — 2 short of the 252 needed for
+    # 52-week high/low. 400 calendar days yields ~274 trading bars, comfortably above
+    # the 252 minimum so SMA(200), the 20-bar SMA200 slope, and 52-week high/low are
+    # all computable for the Minervini hard filters.
+    HISTORY_FETCH_DAYS: int = 400
     MIN_TRADING_BARS: int = 252
 
     # V3 regime-based BUY thresholds (R1/R7)
