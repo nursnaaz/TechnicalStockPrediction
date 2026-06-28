@@ -49,10 +49,12 @@ class TestScoringPipeline:
             timestamps=np.arange(50)
         )
 
-        # Stock 2: Moderate bullish (should score ~50-70)
+        # Stock 2: Moderate bullish — uptrend that has pulled back slightly off its
+        # high (NOT at-high/overbought, so it is not a V3 "climax" setup).
         prices_moderate = np.concatenate([
             np.linspace(100, 120, 30),
-            np.linspace(120, 125, 20)
+            np.linspace(120, 126, 12),
+            np.linspace(126, 121, 8),   # mild pullback off the high
         ])
         volumes_moderate = np.full(50, 1_000_000)
         stock2 = StockData(

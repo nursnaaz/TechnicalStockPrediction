@@ -93,14 +93,19 @@ async def test_it2_hard_filter_excludes_weak_keeps_leader():
         "WEAK": _downtrend("WEAK"),      # below MAs → fails hard filters
     }
     orch = _make_orchestrator(data)
-    # apply_signal_gate=False isolates the hard-filter gate from the score threshold:
-    # a hard-filter PASS appears regardless of score; a FAIL is always excluded.
-    resp = await orch.execute_scan(
-        ScanRequest(tickers=["STRONG", "WEAK"]), apply_signal_gate=False
-    )
-    tickers = [t.ticker for t in resp.ranked_tickers]
-    assert "WEAK" not in tickers     # below MAs → fails hard filters
-    assert "STRONG" in tickers       # uptrend → passes hard filters
+
+    # Production (apply_signal_gate=True): a hard-filter FAIL is dropped entirely.
+    prod = await orch.execute_scan(ScanRequest(tickers=["STRONG", "WEAK"]), apply_signal_gate=True)
+    assert "WEAK" not in [t.ticker for t in prod.ranked_tickers]
+
+    # Backtest (apply_signal_gate=False): the FULL universe is returned so the
+    # confusion matrix is complete — WEAK appears as a score-0 predicted-negative,
+    # STRONG keeps its real score.
+    bt = await orch.execute_scan(ScanRequest(tickers=["STRONG", "WEAK"]), apply_signal_gate=False)
+    by_ticker = {t.ticker: t.bullish_score for t in bt.ranked_tickers}
+    assert "STRONG" in by_ticker and "WEAK" in by_ticker
+    assert by_ticker["WEAK"] == 0        # hard-filter fail → score 0
+    assert by_ticker["STRONG"] > 0       # uptrend passes → real score
 
 
 @pytest.mark.asyncio

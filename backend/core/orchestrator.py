@@ -16,7 +16,8 @@ from api.models import (
     ScanResponse,
     TickerScore,
     ScanMetadata,
-    MarketRegime
+    MarketRegime,
+    IndicatorSignals,
 )
 from core.api_client import RestApiClient, ApiError
 from core.universe_builder import UniverseBuilder
@@ -197,11 +198,32 @@ class ScanOrchestrator:
             scored_tickers: List[TickerScore] = []
             for ticker, stock_data, indicators, current_price, current_volume in rows:
                 try:
-                    # V3 R2: Minervini hard filters — any fail → exclude (valid, not an error).
+                    # V3 R2: Minervini hard filters — any fail → not a BUY candidate.
                     passed, _checks = self.scoring_engine.passes_hard_filters(current_price, indicators)
                     if not passed:
                         failed = [k for k, ok in _checks.items() if not ok]
                         logger.info(f"{ticker} excluded by hard filters: failed {failed}")
+                        if apply_signal_gate:
+                            continue  # production/UI: drop non-candidates entirely
+                        # Backtest mode: keep as a score-0 PREDICTED-NEGATIVE so the
+                        # confusion matrix covers the FULL universe (FN/TN are real).
+                        scored_tickers.append(TickerScore(
+                            ticker=ticker,
+                            bullish_score=0,
+                            signals=IndicatorSignals(
+                                price_above_sma50=False, price_above_ema20=False,
+                                macd_above_signal=False, macd_histogram_positive=False,
+                                volume_above_average=False, relative_strength_positive=False,
+                            ),
+                            current_price=current_price,
+                            indicators={
+                                "sma_50": indicators.sma_50, "ema_20": indicators.ema_20,
+                                "macd_line": indicators.macd_line, "macd_signal": indicators.macd_signal,
+                                "macd_histogram": indicators.macd_histogram,
+                                "avg_volume_20": indicators.avg_volume_20,
+                                "relative_strength": indicators.relative_strength,
+                            },
+                        ))
                         continue
 
                     bullish_score, signals, stage_result, pattern_result = \
