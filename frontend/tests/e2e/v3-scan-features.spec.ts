@@ -47,10 +47,17 @@ test('summary line, min-score filter, breakdown popover and sorting', async ({ p
   await expect(page.getByText(/score 88/)).toBeVisible();
   await page.keyboard.press('Escape');
 
-  // (3) Sort by Price ascending → BBB ($40) before AAA ($150)
+  // (3) Sort by Price — first click ascending → BBB ($40) first
   await page.getByRole('columnheader', { name: 'Price' }).click();
-  const firstRow = page.locator('table tbody tr').first();
-  await expect(firstRow).toContainText('BBB');
+  await expect(page.locator('table tbody tr').first()).toContainText('BBB');
+
+  // Second click must REVERSE → AAA ($150) first (regression: toggle was broken)
+  await page.getByRole('columnheader', { name: 'Price' }).click();
+  await expect(page.locator('table tbody tr').first()).toContainText('AAA');
+
+  // Third click toggles back to ascending → BBB first again
+  await page.getByRole('columnheader', { name: 'Price' }).click();
+  await expect(page.locator('table tbody tr').first()).toContainText('BBB');
 
   // (1) Min-score filter → raise to 80, only AAA (88) remains
   const slider = page.locator('input[type="range"]').first();

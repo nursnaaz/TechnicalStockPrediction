@@ -27,109 +27,118 @@ const BREAKDOWN_ORDER: [string, string][] = [
   ["divergence_penalty", "Divergence penalty"],
 ];
 
+// --- Module-scope, pure cell renderers so column definitions stay reference-stable ---
+// (Stable columns are required for Cloudscape's click-to-toggle sort direction to work.)
+
+function getScoreColor(score: number): "green" | "blue" | "grey" {
+  if (score >= 70) return "green";
+  if (score >= 40) return "blue";
+  return "grey";
+}
+
+function statusBadge(t: TickerScore) {
+  if (t.is_candidate) return <Badge color="green">Candidate</Badge>;
+  if (t.passed_hard_filters) return <Badge color="blue">Below threshold</Badge>;
+  return <Badge color="grey">Failed filters</Badge>;
+}
+
+function scoreBadge(item: TickerScore) {
+  const badge = <Badge color={getScoreColor(item.bullish_score)}>{item.bullish_score}</Badge>;
+  if (!item.score_breakdown) return badge;
+  return (
+    <Popover
+      dismissButton={false}
+      position="top"
+      size="medium"
+      triggerType="custom"
+      header={`${item.ticker} — score ${item.bullish_score}`}
+      content={
+        <Box>
+          {BREAKDOWN_ORDER.filter(([k]) => item.score_breakdown![k] !== undefined).map(([k, label]) => {
+            const v = item.score_breakdown![k];
+            return (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                <span>{label}</span>
+                <span style={{ color: v < 0 ? "#a50e0e" : "#137333", fontWeight: 600 }}>
+                  {v > 0 ? `+${v}` : v}
+                </span>
+              </div>
+            );
+          })}
+        </Box>
+      }
+    >
+      <span style={{ cursor: "pointer" }} data-testid="score-popover-trigger">
+        {badge}
+      </span>
+    </Popover>
+  );
+}
+
 /**
  * Sortable table of ranked tickers. The score cell is a popover that explains the
  * score by component (when the backend supplies a breakdown).
  */
 export default function ResultsTable({ tickers, regime, scoreThreshold }: ResultsTableProps) {
-  const getScoreColor = (score: number): "green" | "blue" | "grey" => {
-    if (score >= 70) return "green";
-    if (score >= 40) return "blue";
-    return "grey";
-  };
-
   const showStatus = tickers.some((t) => t.passed_hard_filters != null || t.is_candidate != null);
-  const statusBadge = (t: TickerScore) => {
-    if (t.is_candidate) return <Badge color="green">Candidate</Badge>;
-    if (t.passed_hard_filters) return <Badge color="blue">Below threshold</Badge>;
-    return <Badge color="grey">Failed filters</Badge>;
-  };
 
-  const scoreBadge = (item: TickerScore) => {
-    const badge = <Badge color={getScoreColor(item.bullish_score)}>{item.bullish_score}</Badge>;
-    if (!item.score_breakdown) return badge;
-    return (
-      <Popover
-        dismissButton={false}
-        position="top"
-        size="medium"
-        triggerType="custom"
-        header={`${item.ticker} — score ${item.bullish_score}`}
-        content={
-          <Box>
-            {BREAKDOWN_ORDER.filter(([k]) => item.score_breakdown![k] !== undefined).map(
-              ([k, label]) => {
-                const v = item.score_breakdown![k];
-                return (
-                  <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-                    <span>{label}</span>
-                    <span style={{ color: v < 0 ? "#a50e0e" : "#137333", fontWeight: 600 }}>
-                      {v > 0 ? `+${v}` : v}
-                    </span>
-                  </div>
-                );
-              }
-            )}
-          </Box>
-        }
-      >
-        <span style={{ cursor: "pointer" }} data-testid="score-popover-trigger">
-          {badge}
-        </span>
-      </Popover>
-    );
-  };
+  // Stable column definitions (only the structure depends on showStatus). Keeping these
+  // referentially stable is what lets a second header click reverse the sort.
+  const columnDefinitions = useMemo(
+    () => [
+      {
+        id: "rank",
+        header: "Rank",
+        cell: (item: RankedTicker) => <Box textAlign="center">{item.rank}</Box>,
+        width: 80,
+      },
+      {
+        id: "ticker",
+        header: "Ticker",
+        cell: (item: RankedTicker) => <strong>{item.ticker}</strong>,
+        sortingComparator: (a: RankedTicker, b: RankedTicker) => a.ticker.localeCompare(b.ticker),
+        width: 100,
+      },
+      {
+        id: "score",
+        header: "Bullish Score",
+        cell: (item: RankedTicker) => scoreBadge(item),
+        sortingComparator: (a: RankedTicker, b: RankedTicker) => a.bullish_score - b.bullish_score,
+        width: 130,
+      },
+      ...(showStatus
+        ? [
+            {
+              id: "status",
+              header: "Status",
+              cell: (item: RankedTicker) => statusBadge(item),
+              width: 150,
+            },
+          ]
+        : []),
+      {
+        id: "price",
+        header: "Price",
+        cell: (item: RankedTicker) => `$${item.current_price.toFixed(2)}`,
+        sortingComparator: (a: RankedTicker, b: RankedTicker) => a.current_price - b.current_price,
+        width: 100,
+      },
+      {
+        id: "signals",
+        header: "Active Signals",
+        cell: (item: RankedTicker) => <SignalBadges signals={item.signals} />,
+      },
+    ],
+    [showStatus]
+  );
 
-  const ranked: RankedTicker[] = tickers.map((ticker, index) => ({ ...ticker, rank: index + 1 }));
-
-  const columnDefinitions = [
-    {
-      id: "rank",
-      header: "Rank",
-      cell: (item: RankedTicker) => <Box textAlign="center">{item.rank}</Box>,
-      width: 80,
-    },
-    {
-      id: "ticker",
-      header: "Ticker",
-      cell: (item: RankedTicker) => <strong>{item.ticker}</strong>,
-      sortingComparator: (a: RankedTicker, b: RankedTicker) => a.ticker.localeCompare(b.ticker),
-      width: 100,
-    },
-    {
-      id: "score",
-      header: "Bullish Score",
-      cell: (item: RankedTicker) => scoreBadge(item),
-      sortingComparator: (a: RankedTicker, b: RankedTicker) => a.bullish_score - b.bullish_score,
-      width: 130,
-    },
-    ...(showStatus
-      ? [
-          {
-            id: "status",
-            header: "Status",
-            cell: (item: RankedTicker) => statusBadge(item),
-            width: 150,
-          },
-        ]
-      : []),
-    {
-      id: "price",
-      header: "Price",
-      cell: (item: RankedTicker) => `$${item.current_price.toFixed(2)}`,
-      sortingComparator: (a: RankedTicker, b: RankedTicker) => a.current_price - b.current_price,
-      width: 100,
-    },
-    {
-      id: "signals",
-      header: "Active Signals",
-      cell: (item: RankedTicker) => <SignalBadges signals={item.signals} />,
-    },
-  ];
-
-  // Cloudscape doesn't sort for us — keep sort state and apply the column's comparator.
   const [sortingColumn, setSortingColumn] = useState<(typeof columnDefinitions)[number] | undefined>();
   const [sortingDescending, setSortingDescending] = useState(false);
+
+  const ranked: RankedTicker[] = useMemo(
+    () => tickers.map((ticker, index) => ({ ...ticker, rank: index + 1 })),
+    [tickers]
+  );
 
   const sortedItems = useMemo(() => {
     const cmp = sortingColumn?.sortingComparator;
