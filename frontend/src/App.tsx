@@ -20,6 +20,7 @@ import ResultsTable from "./components/ResultsTable";
 import ErrorMessage from "./components/ErrorMessage";
 import BacktestPanel from "./components/BacktestPanel";
 import { executeScan, getHalalUniverse } from "./services/scanApi";
+import { downloadScanReport } from "./utils/scanReport";
 import type { ScanResponse } from "./types/scan";
 
 function App() {
@@ -159,11 +160,21 @@ function App() {
                           <MarketRegimeBadge regime={results.market_regime} />
                           <Container>
                             <SpaceBetween size="s">
-                              <Box variant="awsui-key-label" data-testid="scan-summary">
-                                Showing {shown.length} of {results.ranked_tickers.length} ·
-                                avg score {avg} · regime {results.market_regime}
-                                {results.score_threshold ? ` (BUY ≥ ${results.score_threshold})` : ""}
-                              </Box>
+                              <SpaceBetween size="xs" direction="horizontal">
+                                <Box variant="awsui-key-label" data-testid="scan-summary">
+                                  Showing {shown.length} of {results.ranked_tickers.length} ·
+                                  avg score {avg} · regime {results.market_regime}
+                                  {results.score_threshold ? ` (BUY ≥ ${results.score_threshold})` : ""}
+                                </Box>
+                                <Button
+                                  iconName="download"
+                                  data-testid="download-scan-report"
+                                  disabled={results.ranked_tickers.length === 0}
+                                  onClick={() => downloadScanReport(results)}
+                                >
+                                  Download Report
+                                </Button>
+                              </SpaceBetween>
                               <FormField label={`Minimum score: ${minScore}`}>
                                 <Slider
                                   value={minScore}
