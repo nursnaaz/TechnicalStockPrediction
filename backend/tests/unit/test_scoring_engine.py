@@ -474,3 +474,30 @@ class TestDivergencePenalty:
 
     def test_no_typeerror_with_all_none(self):
         assert ScoringEngine.divergence_penalty(100.0, TechnicalIndicators()) == 0
+
+
+class TestScoreBreakdown:
+    """V3: the optional breakdown dict explains the score by component."""
+
+    def test_breakdown_components_sum_to_score(self, engine):
+        import numpy as np
+        ind = TechnicalIndicators(
+            sma_50=95, sma_150=90, sma_200=85, sma_200_slope=1, week52_high=130, week52_low=70,
+            ema_20=98, rsi_14=60, roc_10=3, macd_line=1, macd_signal=0.5, macd_histogram=0.5,
+            avg_volume_20=1e6, relative_strength=2, proximity_to_20d_high=96,
+        )
+        bd = {}
+        score, *_ = engine.calculate_enhanced_score(
+            100.0, 1.5e6, ind, np.linspace(50, 150, 260), np.full(260, 1e6),
+            rs_percentile=85, breakdown=bd,
+        )
+        assert bd["total"] == score
+        assert sum(v for k, v in bd.items() if k != "total") == score
+        for key in ("trend", "momentum", "strength", "confirmation", "stage_pattern",
+                    "extension_penalty", "climax_penalty", "divergence_penalty"):
+            assert key in bd
+
+    def test_no_breakdown_when_dict_not_passed(self, engine):
+        # Backwards-compatible: omitting breakdown changes nothing
+        score, signals = engine.calculate_score(100.0, 1e6, TechnicalIndicators(sma_50=90))
+        assert isinstance(score, int)

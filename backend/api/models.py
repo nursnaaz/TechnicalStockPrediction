@@ -71,6 +71,11 @@ class TickerScore(BaseModel):
         default=None,
         description="Whether it is a BUY candidate (passed filters AND score >= threshold)",
     )
+    score_breakdown: dict[str, int] | None = Field(
+        default=None,
+        description="Per-component point contributions (trend/momentum/strength/confirmation/"
+        "stage_pattern and extension/climax/divergence penalties)",
+    )
 
     class Config:
         json_schema_extra = {

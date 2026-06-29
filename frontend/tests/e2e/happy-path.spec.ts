@@ -55,7 +55,7 @@ test.describe('Happy Path - Complete Scan Workflow', () => {
     const resultsTable = page.locator('table');
     if (await resultsTable.isVisible()) {
       // Verify market regime badge is displayed
-      const regimeBadge = page.locator('[data-testid*="regime"], .awsui-badge, text=/bullish|bearish|neutral/i');
+      const regimeBadge = page.getByTestId('market-regime-badge');
       await expect(regimeBadge.first()).toBeVisible();
 
       // Verify results table has expected columns
@@ -102,7 +102,7 @@ test.describe('Happy Path - Complete Scan Workflow', () => {
     const resultsTable = page.locator('table');
     if (await resultsTable.isVisible()) {
       // Verify market regime is displayed
-      await expect(page.locator('text=/market.*regime/i, text=/bullish|bearish|neutral/i').first()).toBeVisible();
+      await expect(page.getByTestId('market-regime-badge')).toBeVisible();
 
       // Verify results table structure
       await expect(resultsTable.locator('thead')).toBeVisible();

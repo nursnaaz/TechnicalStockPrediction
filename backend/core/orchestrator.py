@@ -237,6 +237,7 @@ class ScanOrchestrator:
                         )
                         continue
 
+                    score_breakdown: dict = {}
                     (
                         bullish_score,
                         signals,
@@ -249,6 +250,7 @@ class ScanOrchestrator:
                         stock_data.prices,
                         stock_data.volumes,
                         rs_percentile=_rs_pct(indicators.relative_strength),
+                        breakdown=score_breakdown,
                     )
 
                     # V3 R7: BUY only when score clears the regime threshold
@@ -278,6 +280,7 @@ class ScanOrchestrator:
                         indicators=indicators_dict,
                         passed_hard_filters=True,
                         is_candidate=bullish_score >= regime.threshold,
+                        score_breakdown=score_breakdown,
                     )
 
                     scored_tickers.append(ticker_score)

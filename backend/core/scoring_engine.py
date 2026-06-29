@@ -110,6 +110,7 @@ class ScoringEngine:
         current_volume: float,
         indicators: TechnicalIndicators,
         rs_percentile: float | None = None,
+        breakdown: dict | None = None,
     ) -> tuple[int, IndicatorSignals]:
         """
         Calculate bullish score with gradient scoring.
@@ -125,6 +126,10 @@ class ScoringEngine:
             current_price: Latest closing price
             current_volume: Latest daily volume
             indicators: Calculated technical indicators
+            rs_percentile: Cross-universe relative-strength percentile (0-100), if known.
+            breakdown: Optional dict, populated in place with the per-component point
+                contributions (trend, momentum, strength, confirmation, and the
+                extension/climax/divergence penalties) for UI display.
 
         Returns:
             Tuple of (bullish_score 0-100, signals)
@@ -172,6 +177,8 @@ class ScoringEngine:
                 trend_score += 2  # Approaching
 
         total_score += min(trend_score, 20)
+        if breakdown is not None:
+            breakdown["trend"] = int(min(trend_score, 20))
 
         # === RECOVERY BONUS — REMOVED in V3 (R3) ===
         # The V2 recovery bonus rewarded stocks BELOW their moving averages, which
@@ -214,6 +221,8 @@ class ScoringEngine:
                     extension_penalty += 3
 
         total_score -= min(extension_penalty, 25)
+        if breakdown is not None:
+            breakdown["extension_penalty"] = -int(min(extension_penalty, 25))
 
         # === CLIMAX / EXHAUSTION PENALTY (0 to -12 pts) — V3.1 (precision fix) ===
         # FP research: false positives cluster as "buying the top of an extended,
@@ -233,6 +242,8 @@ class ScoringEngine:
             elif at_high and indicators.rsi_14 >= 70:
                 climax_penalty = 6  # overbought right at the high
         total_score -= climax_penalty
+        if breakdown is not None:
+            breakdown["climax_penalty"] = -int(climax_penalty)
 
         # === COMPONENT 2: MOMENTUM (0-20 pts) ===
         # Is momentum building or fading?
@@ -277,6 +288,8 @@ class ScoringEngine:
                 momentum_score += 2
 
         total_score += min(momentum_score, 20)
+        if breakdown is not None:
+            breakdown["momentum"] = int(min(momentum_score, 20))
 
         # === COMPONENT 3: STRENGTH (0-20 pts) ===
         # Is the stock showing relative strength and healthy RSI?
@@ -324,6 +337,8 @@ class ScoringEngine:
                 strength_score += 1
 
         total_score += min(strength_score, 20)
+        if breakdown is not None:
+            breakdown["strength"] = int(min(strength_score, 20))
 
         # === COMPONENT 4: CONFIRMATION (0-20 pts) ===
         # Volume and breakout proximity
@@ -359,9 +374,14 @@ class ScoringEngine:
                 confirmation_score += 2  # Deeper pullback
 
         total_score += min(confirmation_score, 20)
+        if breakdown is not None:
+            breakdown["confirmation"] = int(min(confirmation_score, 20))
 
         # === INDICATOR DIVERGENCE PENALTY (0 to -8 pts) — V3 (R6) ===
-        total_score -= self.divergence_penalty(current_price, indicators)
+        _divergence = self.divergence_penalty(current_price, indicators)
+        total_score -= _divergence
+        if breakdown is not None:
+            breakdown["divergence_penalty"] = -int(_divergence)
 
         # === FINAL SCORE === (clamped to [0, 100] — P8; penalties can drive it negative)
         final_score = int(min(max(round(total_score), 0), 100))
@@ -386,6 +406,7 @@ class ScoringEngine:
         prices: np.ndarray,
         volumes: np.ndarray,
         rs_percentile: float | None = None,
+        breakdown: dict | None = None,
     ) -> tuple[int, IndicatorSignals, StageResult, PatternResult]:
         """
         Calculate enhanced score with Stage 2 + Pattern Detection bonus.
@@ -399,13 +420,16 @@ class ScoringEngine:
             indicators: Calculated technical indicators
             prices: Full price history (for stage/pattern analysis)
             volumes: Full volume history (for pattern analysis)
+            rs_percentile: Cross-universe relative-strength percentile (0-100), if known.
+            breakdown: Optional dict, populated in place with the per-component points
+                (including a ``stage_pattern`` entry for the Stage 2 + Pattern bonus).
 
         Returns:
             Tuple of (score, signals, stage_result, pattern_result)
         """
         # Get base score (0-80 max from 4 components of 20 each)
         base_score, signals = self.calculate_score(
-            current_price, current_volume, indicators, rs_percentile=rs_percentile
+            current_price, current_volume, indicators, rs_percentile=rs_percentile, breakdown=breakdown
         )
 
         # === COMPONENT 5: STAGE & PATTERN BONUS (0-20 pts) ===
@@ -435,5 +459,8 @@ class ScoringEngine:
 
         # Calculate final enhanced score
         enhanced_score = int(min(round(base_score + bonus), 100))
+        if breakdown is not None:
+            breakdown["stage_pattern"] = int(bonus)
+            breakdown["total"] = enhanced_score
 
         return enhanced_score, signals, stage_result, pattern_result

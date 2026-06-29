@@ -28,6 +28,8 @@ export interface TickerScore {
   // V3 diagnostic fields (present when include_all is requested)
   passed_hard_filters?: boolean | null;
   is_candidate?: boolean | null;
+  // Per-component point contributions (trend/momentum/strength/confirmation/stage_pattern/penalties).
+  score_breakdown?: Record<string, number> | null;
 }
 
 export interface ScanMetadata {

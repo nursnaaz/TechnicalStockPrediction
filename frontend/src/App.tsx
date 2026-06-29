@@ -8,6 +8,9 @@ import Input from "@cloudscape-design/components/input";
 import Tabs from "@cloudscape-design/components/tabs";
 import Button from "@cloudscape-design/components/button";
 import Toggle from "@cloudscape-design/components/toggle";
+import Slider from "@cloudscape-design/components/slider";
+import Box from "@cloudscape-design/components/box";
+import FormField from "@cloudscape-design/components/form-field";
 import "@cloudscape-design/global-styles/index.css";
 
 import ScanButton from "./components/ScanButton";
@@ -27,6 +30,7 @@ function App() {
   const [showAll, setShowAll] = useState(false);
   const [halalCount, setHalalCount] = useState<number | null>(null);
   const [loadingHalal, setLoadingHalal] = useState(false);
+  const [minScore, setMinScore] = useState(0);
 
   const loadAllHalal = async () => {
     setLoadingHalal(true);
@@ -140,16 +144,45 @@ function App() {
 
                     {loading && <LoadingIndicator message="Analyzing stocks..." />}
 
-                    {results && (
-                      <SpaceBetween size="m">
-                        <MarketRegimeBadge regime={results.market_regime} />
-                        <ResultsTable
-                          tickers={results.ranked_tickers}
-                          regime={results.market_regime}
-                          scoreThreshold={results.score_threshold}
-                        />
-                      </SpaceBetween>
-                    )}
+                    {results && (() => {
+                      const shown = results.ranked_tickers.filter(
+                        (t) => t.bullish_score >= minScore
+                      );
+                      const avg =
+                        shown.length > 0
+                          ? Math.round(
+                              shown.reduce((s, t) => s + t.bullish_score, 0) / shown.length
+                            )
+                          : 0;
+                      return (
+                        <SpaceBetween size="m">
+                          <MarketRegimeBadge regime={results.market_regime} />
+                          <Container>
+                            <SpaceBetween size="s">
+                              <Box variant="awsui-key-label" data-testid="scan-summary">
+                                Showing {shown.length} of {results.ranked_tickers.length} ·
+                                avg score {avg} · regime {results.market_regime}
+                                {results.score_threshold ? ` (BUY ≥ ${results.score_threshold})` : ""}
+                              </Box>
+                              <FormField label={`Minimum score: ${minScore}`}>
+                                <Slider
+                                  value={minScore}
+                                  onChange={({ detail }) => setMinScore(detail.value)}
+                                  min={0}
+                                  max={100}
+                                  step={5}
+                                />
+                              </FormField>
+                            </SpaceBetween>
+                          </Container>
+                          <ResultsTable
+                            tickers={shown}
+                            regime={results.market_regime}
+                            scoreThreshold={results.score_threshold}
+                          />
+                        </SpaceBetween>
+                      );
+                    })()}
                   </SpaceBetween>
                 ),
               },
