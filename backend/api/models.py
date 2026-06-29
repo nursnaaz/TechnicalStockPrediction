@@ -172,3 +172,13 @@ class HealthResponse(BaseModel):
 
     class Config:
         json_schema_extra = {"example": {"status": "healthy"}}
+
+
+class HalalUniverseResponse(BaseModel):
+    """The full curated halal stock universe."""
+
+    tickers: list[str] = Field(description="Deduplicated list of halal ticker symbols")
+    count: int = Field(description="Number of tickers")
+
+    class Config:
+        json_schema_extra = {"example": {"tickers": ["AAPL", "MSFT", "NVDA"], "count": 3}}

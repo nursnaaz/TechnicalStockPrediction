@@ -39,6 +39,19 @@ export async function getScanById(scanId: string): Promise<ScanResponse> {
 }
 
 /**
+ * Fetch the full curated halal stock universe (single source of truth: the backend).
+ */
+export async function getHalalUniverse(): Promise<{ tickers: string[]; count: number }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/halal-universe`);
+
+  if (!response.ok) {
+    throw new Error('Failed to load the halal universe');
+  }
+
+  return response.json();
+}
+
+/**
  * Check backend health status
  */
 export async function checkHealth(): Promise<{ status: string }> {

@@ -16,7 +16,7 @@ import MarketRegimeBadge from "./components/MarketRegimeBadge";
 import ResultsTable from "./components/ResultsTable";
 import ErrorMessage from "./components/ErrorMessage";
 import BacktestPanel from "./components/BacktestPanel";
-import { executeScan } from "./services/scanApi";
+import { executeScan, getHalalUniverse } from "./services/scanApi";
 import type { ScanResponse } from "./types/scan";
 
 function App() {
@@ -25,6 +25,22 @@ function App() {
   const [results, setResults] = useState<ScanResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [halalCount, setHalalCount] = useState<number | null>(null);
+  const [loadingHalal, setLoadingHalal] = useState(false);
+
+  const loadAllHalal = async () => {
+    setLoadingHalal(true);
+    setError(null);
+    try {
+      const { tickers, count } = await getHalalUniverse();
+      setTickers(tickers.join(","));
+      setHalalCount(count);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load the halal universe");
+    } finally {
+      setLoadingHalal(false);
+    }
+  };
 
   const handleScan = async () => {
     // Validate input
@@ -93,6 +109,14 @@ function App() {
                           <Button variant="link" onClick={() => setTickers("AAPL,MSFT,NVDA,GOOGL,AVGO,ORCL,ADBE,CRM,CSCO,AMD,QCOM,TXN,AMAT,LRCX,KLAC,MRVL,NXPI,ADI,TSM,IBM,DDOG,CRWD,PANW,NET,NOW")}>Tech</Button>
                           <Button variant="link" onClick={() => setTickers("LLY,JNJ,UNH,PFE,ABBV,TMO,ABT,DHR,MRK,BMY,AMGN,GILD,REGN,VRTX,ISRG")}>Healthcare</Button>
                           <Button variant="link" onClick={() => setTickers("XOM,CVX,COP,SLB,EOG,PSX,MPC,VLO,OXY,HAL")}>Energy</Button>
+                          <Button
+                            variant="link"
+                            iconName="download"
+                            loading={loadingHalal}
+                            onClick={loadAllHalal}
+                          >
+                            All Halal Stocks{halalCount ? ` (${halalCount})` : ""}
+                          </Button>
                         </SpaceBetween>
                         <Input
                           value={tickers}

@@ -6,9 +6,10 @@ Defines all REST API routes for the Bullish Stock Scanner.
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.models import HealthResponse, ScanRequest, ScanResponse
+from api.models import HalalUniverseResponse, HealthResponse, ScanRequest, ScanResponse
 from config import config
 from core.api_client import RestApiClient
+from core.halal_universe import load_halal_universe
 from core.indicator_calculator import IndicatorCalculator
 from core.orchestrator import ScanError, ScanOrchestrator
 from core.ranking_service import RankingService
@@ -75,6 +76,18 @@ async def health_check():
         HealthResponse indicating service is running
     """
     return HealthResponse(status="healthy")
+
+
+@router.get("/halal-universe", response_model=HalalUniverseResponse, tags=["scan"])
+async def halal_universe():
+    """
+    Return the full curated halal stock universe.
+
+    Returns:
+        HalalUniverseResponse with the deduplicated ticker list and its count.
+    """
+    tickers = list(load_halal_universe())
+    return HalalUniverseResponse(tickers=tickers, count=len(tickers))
 
 
 @router.post("/scan", response_model=ScanResponse, tags=["scan"])
