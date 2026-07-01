@@ -121,10 +121,18 @@ export default function StockIntelligenceModal({ ticker, onClose }: Props) {
             <Section title="Analyst Target" unavailable={un("analyst")} empty={!data.analyst}>
               {data.analyst && (
                 <SpaceBetween size="xxs">
-                  <Box><b>${(data.analyst.price_target_mean ?? data.analyst.target ?? 0).toFixed(2)}</b> mean</Box>
+                  {data.analyst.rating && (
+                    <Badge color={/buy/i.test(data.analyst.rating) ? "green" : /sell/i.test(data.analyst.rating) ? "red" : "grey"}>
+                      {data.analyst.rating.replace(/_/g, " ")}
+                    </Badge>
+                  )}
+                  <Box>
+                    <b>${(data.analyst.price_target_mean ?? data.analyst.target ?? 0).toFixed(2)}</b> target
+                  </Box>
                   <Box variant="small">
                     ${(data.analyst.price_target_low ?? data.analyst.low ?? 0).toFixed(0)} – $
                     {(data.analyst.price_target_high ?? data.analyst.high ?? 0).toFixed(0)}
+                    {data.analyst.analyst_count ? ` · ${data.analyst.analyst_count} analysts` : ""}
                   </Box>
                 </SpaceBetween>
               )}

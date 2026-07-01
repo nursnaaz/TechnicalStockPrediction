@@ -312,86 +312,33 @@ class MassiveDataClient:
         Returns:
             Dict with 'target', 'low', 'high' keys, or None on error/empty
         """
-        try:
-            endpoint = f"/benzinga/v1/consensus-ratings/{ticker}"
-            params: dict = {}
-
-            response = await self._request_with_retry(endpoint, params, ticker)
-            if response is None:
-                return None
-
-            data = response.json()
-
-            # Extract price target data from response
-            # Benzinga consensus format may vary; handle common structures
-            targets = []
-
-            if isinstance(data, dict):
-                # Check for direct price target fields
-                if "target_price" in data or "price_target" in data:
-                    target = data.get("target_price") or data.get("price_target")
-                    low = data.get("target_price_low") or data.get("price_target_low")
-                    high = data.get("target_price_high") or data.get("price_target_high")
-                    if target is not None:
-                        return {
-                            "target": float(target),
-                            "low": float(low) if low is not None else None,
-                            "high": float(high) if high is not None else None,
-                        }
-
-                # Check for nested ratings/analysts array
-                ratings = data.get("ratings", data.get("results", []))
-                if isinstance(ratings, list):
-                    targets = ratings
-
-                # Check for consensus object
-                consensus = data.get("consensus", {})
-                if isinstance(consensus, dict) and consensus:
-                    target = consensus.get("target_price") or consensus.get("price_target")
-                    low = consensus.get("target_price_low") or consensus.get("price_target_low")
-                    high = consensus.get("target_price_high") or consensus.get("price_target_high")
-                    if target is not None:
-                        return {
-                            "target": float(target),
-                            "low": float(low) if low is not None else None,
-                            "high": float(high) if high is not None else None,
-                        }
-
-            elif isinstance(data, list):
-                targets = data
-
-            # Extract price targets from ratings list
-            if targets:
-                price_targets = []
-                for rating in targets:
-                    if isinstance(rating, dict):
-                        pt = (
-                            rating.get("target_price")
-                            or rating.get("price_target")
-                            or rating.get("pt")
-                        )
-                        if pt is not None:
-                            try:
-                                price_targets.append(float(pt))
-                            except (ValueError, TypeError):
-                                continue
-
-                if price_targets:
-                    return {
-                        "target": round(sum(price_targets) / len(price_targets), 2),
-                        "low": round(min(price_targets), 2),
-                        "high": round(max(price_targets), 2),
-                    }
-
-            # No valid price target data found
+        # Real Benzinga consensus schema (per Massive docs):
+        #   results[].{consensus_price_target, high_price_target, low_price_target,
+        #              consensus_rating, price_target_contributors, ratings_contributors,
+        #              buy_ratings, hold_ratings, sell_ratings, strong_buy_ratings,
+        #              strong_sell_ratings}
+        results = await self._results(
+            f"/benzinga/v1/consensus-ratings/{ticker}", {"ticker": ticker, "limit": 1}, ticker
+        )
+        if not results:
             return None
-
-        except Exception as e:
-            try:
-                logger.error(f"Error parsing analyst consensus for {ticker}: {e}")
-            except Exception:
-                pass
+        r = results[0]
+        target = _num(r.get("consensus_price_target"))
+        if target is None:
             return None
+        return {
+            "target": target,  # kept for the trade engine (expects target/low/high)
+            "low": _num(r.get("low_price_target")),
+            "high": _num(r.get("high_price_target")),
+            "rating": r.get("consensus_rating"),
+            "rating_value": _num(r.get("consensus_rating_value")),
+            "analyst_count": _num(
+                _first(r, "price_target_contributors", "ratings_contributors")
+            ),
+            "buy_ratings": _num(r.get("buy_ratings")),
+            "hold_ratings": _num(r.get("hold_ratings")),
+            "sell_ratings": _num(r.get("sell_ratings")),
+        }
 
     # ─── Stock Intelligence fetchers (news, insider, short interest, ─────
     #     dividends, macro). Each returns parsed data or None on failure,

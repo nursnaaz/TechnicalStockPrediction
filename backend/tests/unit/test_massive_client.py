@@ -220,32 +220,36 @@ class TestGetAnalystConsensus:
 
     @pytest.mark.asyncio
     async def test_parse_valid_response_with_price_targets(self):
-        """Consensus: parse valid response with price targets, return mean/low/high."""
+        """Consensus: parse the real Benzinga schema (Massive already aggregates)."""
 
-        ratings = [
-            {"target_price": 180.0},
-            {"target_price": 200.0},
-            {"target_price": 190.0},
-            {"target_price": 210.0},
-        ]
+        # Real documented schema: a single results[] record with pre-aggregated fields.
+        record = {
+            "ticker": "AAPL",
+            "consensus_price_target": 195.0,
+            "low_price_target": 180.0,
+            "high_price_target": 210.0,
+            "consensus_rating": "buy",
+            "consensus_rating_value": 4.14,
+            "price_target_contributors": 15,
+            "buy_ratings": 6,
+            "hold_ratings": 3,
+            "sell_ratings": 0,
+        }
 
         def handler(request: httpx.Request) -> httpx.Response:
             assert "consensus-ratings/AAPL" in str(request.url)
-            return _json_response({"ratings": ratings})
+            return _json_response({"results": [record]})
 
         client = _make_client(handler)
         try:
             result = await client.get_analyst_consensus("AAPL")
 
             assert result is not None
-            assert "target" in result
-            assert "low" in result
-            assert "high" in result
-
-            # Mean of [180, 200, 190, 210] = 195.0
             assert result["target"] == 195.0
             assert result["low"] == 180.0
             assert result["high"] == 210.0
+            assert result["rating"] == "buy"
+            assert result["analyst_count"] == 15.0
         finally:
             await client.close()
 
