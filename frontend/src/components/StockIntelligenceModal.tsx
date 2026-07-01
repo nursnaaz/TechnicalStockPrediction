@@ -172,6 +172,46 @@ export default function StockIntelligenceModal({ ticker, onClose }: Props) {
             </SpaceBetween>
           </Section>
 
+          {/* Analyst insights — per-firm rating actions with rationale */}
+          <Section
+            title="Analyst Insights"
+            unavailable={un("analyst_insights")}
+            empty={data.analyst_insights.length === 0}
+          >
+            <SpaceBetween size="s">
+              {data.analyst_insights.slice(0, 4).map((a, i) => (
+                <div key={i} style={{ borderLeft: "3px solid #e6ebf1", paddingLeft: 12 }}>
+                  <SpaceBetween size="xxs" direction="horizontal">
+                    {a.rating && (
+                      <Badge
+                        color={
+                          /buy|outperform|overweight/i.test(a.rating)
+                            ? "green"
+                            : /sell|underperform|underweight/i.test(a.rating)
+                              ? "red"
+                              : "grey"
+                        }
+                      >
+                        {a.rating}
+                      </Badge>
+                    )}
+                    <Box variant="small" color="text-status-inactive">
+                      {a.firm}
+                      {a.rating_action ? ` · ${a.rating_action.replace(/_/g, " ")}` : ""}
+                      {a.price_target != null ? ` · $${a.price_target.toFixed(0)} PT` : ""}
+                      {a.date ? ` · ${a.date}` : ""}
+                    </Box>
+                  </SpaceBetween>
+                  {a.insight && (
+                    <Box variant="small">
+                      {a.insight.length > 280 ? `${a.insight.slice(0, 280)}…` : a.insight}
+                    </Box>
+                  )}
+                </div>
+              ))}
+            </SpaceBetween>
+          </Section>
+
           {/* Dividends + Earnings + Fundamentals */}
           <ColumnLayout columns={3} variant="text-grid">
             <Section title="Dividends" unavailable={un("dividends")} empty={data.dividends.length === 0}>

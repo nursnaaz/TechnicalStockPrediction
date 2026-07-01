@@ -27,6 +27,7 @@ def _fake_client(**overrides):
     client.get_earnings.return_value = [{"date": "2026-07-30"}]
     client.get_fundamentals.return_value = {"pe_ratio": 30.0}
     client.get_short_volume.return_value = {"short_volume_ratio": 25.0, "date": "2026-06-30"}
+    client.get_analyst_insights.return_value = [{"firm": "Needham", "rating": "buy", "rating_action": "maintains", "price_target": 55.0, "insight": "Strong app-driven GMS growth.", "date": "2026-06-01"}]
     for name, value in overrides.items():
         getattr(client, name).return_value = value
     return client
@@ -236,3 +237,24 @@ async def test_gather_includes_short_volume():
     intel = await gather_intelligence(client, "AAPL")
     assert intel["short_volume"]["short_volume_ratio"] == 30.0
     assert "short_volume" not in intel["unavailable"]
+
+
+@pytest.mark.asyncio
+async def test_get_analyst_insights_parses():
+    client = MassiveDataClient(api_key="k", base_url="https://api.massive.com")
+    body = {"results": [
+        {"date": "2025-05-01", "firm": "Needham", "rating": "buy",
+         "rating_action": "maintains", "price_target": 55, "insight": "Buy rating, $55 PT."}
+    ]}
+    with patch.object(client, "_request_with_retry", AsyncMock(return_value=_resp(body))):
+        out = await client.get_analyst_insights("ETSY")
+    assert out[0]["firm"] == "Needham" and out[0]["price_target"] == 55.0
+    assert out[0]["rating_action"] == "maintains"
+    await client.close()
+
+
+@pytest.mark.asyncio
+async def test_gather_includes_analyst_insights():
+    intel = await gather_intelligence(_fake_client(), "AAPL")
+    assert intel["analyst_insights"][0]["firm"] == "Needham"
+    assert "analyst_insights" not in intel["unavailable"]

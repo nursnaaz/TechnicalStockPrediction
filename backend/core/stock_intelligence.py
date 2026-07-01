@@ -62,6 +62,7 @@ async def gather_intelligence(client: MassiveDataClient, ticker: str) -> dict:
         dividends,
         macro,
         analyst,
+        analyst_insights,
         earnings,
         fundamentals,
     ) = await asyncio.gather(
@@ -72,6 +73,7 @@ async def gather_intelligence(client: MassiveDataClient, ticker: str) -> dict:
         _safe(client.get_dividends(ticker)),
         _safe(client.get_macro()),
         _safe(client.get_analyst_consensus(ticker)),
+        _safe(client.get_analyst_insights(ticker)),
         _safe(client.get_earnings(ticker, back, fwd)),
         _safe(client.get_fundamentals(ticker)),
     )
@@ -84,6 +86,7 @@ async def gather_intelligence(client: MassiveDataClient, ticker: str) -> dict:
         "dividends": dividends,
         "macro": macro,
         "analyst": analyst,
+        "analyst_insights": analyst_insights,
         "earnings": earnings,
         "fundamentals": fundamentals,
     }
@@ -100,6 +103,7 @@ async def gather_intelligence(client: MassiveDataClient, ticker: str) -> dict:
         "dividends": dividends or [],
         "macro": macro,
         "analyst": analyst,
+        "analyst_insights": analyst_insights or [],
         "earnings": earnings or [],
         "fundamentals": fundamentals,
         "unavailable": unavailable,

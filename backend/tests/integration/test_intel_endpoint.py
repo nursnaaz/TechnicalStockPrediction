@@ -19,6 +19,7 @@ def _all_failing_client():
         "get_dividends",
         "get_macro",
         "get_analyst_consensus",
+        "get_analyst_insights",
         "get_earnings",
         "get_fundamentals",
     ):
@@ -42,6 +43,7 @@ def test_intelligence_returns_200_even_when_everything_fails():
         "dividends",
         "macro",
         "analyst",
+        "analyst_insights",
         "earnings",
         "fundamentals",
     }

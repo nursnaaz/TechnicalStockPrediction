@@ -65,6 +65,15 @@ export interface AnalystConsensus {
 }
 
 // Real Benzinga /benzinga/v1/earnings schema (raw dicts flow through unchanged).
+export interface AnalystInsight {
+  date: string | null;
+  firm: string | null;
+  rating: string | null;
+  rating_action: string | null; // upgrades | downgrades | maintains | initiates_coverage_on | ...
+  price_target: number | null;
+  insight: string | null; // narrative rationale
+}
+
 export interface EarningsRow {
   date: string | null;
   date_status: string | null; // projected | confirmed
@@ -95,6 +104,7 @@ export interface StockIntelligence {
   dividends: Dividend[];
   macro: Macro | null;
   analyst: AnalystConsensus | null;
+  analyst_insights: AnalystInsight[];
   earnings: EarningsRow[];
   fundamentals: Fundamentals | null;
   /** Section names that could not be fetched (403/error) — show "unavailable", never fake. */

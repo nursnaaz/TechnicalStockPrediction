@@ -509,6 +509,33 @@ class MassiveDataClient:
             "debt_to_equity": _num(_first(r, "debt_to_equity", "de_ratio")),
         }
 
+    async def get_analyst_insights(self, ticker: str, limit: int = 5) -> list[dict] | None:
+        """Recent per-analyst rating actions with rationale (`/benzinga/v1/analyst-insights`).
+
+        Richer than the consensus card: each record is a single firm's rating, price
+        target, rating_action (upgrades/downgrades/initiates/maintains) and a narrative
+        `insight` explaining the call. Premium (Benzinga entitlement) — None when
+        unentitled, so it degrades to "unavailable" like the other Benzinga sections.
+        """
+        results = await self._results(
+            "/benzinga/v1/analyst-insights",
+            {"ticker": ticker, "limit": limit, "sort": "date.desc"},
+            ticker,
+        )
+        if results is None:
+            return None
+        return [
+            {
+                "date": r.get("date"),
+                "firm": r.get("firm"),
+                "rating": r.get("rating"),
+                "rating_action": r.get("rating_action"),
+                "price_target": _num(r.get("price_target")),
+                "insight": r.get("insight"),
+            }
+            for r in results
+        ]
+
     async def close(self) -> None:
         """Close the HTTP client. Should be called on shutdown."""
         await self.client.aclose()
