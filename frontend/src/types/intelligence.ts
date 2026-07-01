@@ -64,13 +64,17 @@ export interface AnalystConsensus {
   high?: number | null;
 }
 
+// Real Benzinga /benzinga/v1/earnings schema (raw dicts flow through unchanged).
 export interface EarningsRow {
   date: string | null;
-  date_status: string | null;
-  fiscal_period: string | null;
-  eps: number | null;
-  eps_estimate: number | null;
-  revenue: number | null;
+  date_status: string | null; // projected | confirmed
+  fiscal_period: string | null; // Q1, Q2, H1, FY, ...
+  time: string | null; // HH:MM:SS EST
+  actual_eps: number | null;
+  estimated_eps: number | null;
+  eps_surprise_percent: number | null;
+  actual_revenue: number | null;
+  estimated_revenue: number | null;
 }
 
 export interface Fundamentals {

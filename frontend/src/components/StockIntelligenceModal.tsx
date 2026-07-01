@@ -187,7 +187,15 @@ export default function StockIntelligenceModal({ ticker, onClose }: Props) {
               {data.earnings[0] && (
                 <SpaceBetween size="xxs">
                   <Box><b>{data.earnings[0].date}</b> ({data.earnings[0].date_status})</Box>
-                  <Box variant="small">EPS est: {data.earnings[0].eps_estimate ?? "—"}</Box>
+                  <Box variant="small">EPS est: {data.earnings[0].estimated_eps ?? "—"}</Box>
+                  {data.earnings[0].actual_eps != null && (
+                    <Box variant="small">
+                      EPS actual: {data.earnings[0].actual_eps}
+                      {data.earnings[0].eps_surprise_percent != null
+                        ? ` (${data.earnings[0].eps_surprise_percent > 0 ? "+" : ""}${data.earnings[0].eps_surprise_percent.toFixed(1)}%)`
+                        : ""}
+                    </Box>
+                  )}
                 </SpaceBetween>
               )}
             </Section>
