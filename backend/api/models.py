@@ -55,6 +55,41 @@ class IndicatorSignals(BaseModel):
         }
 
 
+class TradePlanResponse(BaseModel):
+    """Trade plan response model (mirrors TradePlan dataclass)."""
+
+    entry: float = Field(description="Entry price")
+    stop: float = Field(description="Stop loss price")
+    stop_pct: float = Field(description="Stop loss as percentage from entry (negative)")
+    target1: float = Field(description="Primary profit target (2R)")
+    target1_pct: float = Field(description="Target1 as percentage gain from entry")
+    target2: float = Field(description="Stretch profit target (3R)")
+    target2_pct: float = Field(description="Target2 as percentage gain from entry")
+    risk_per_share: float = Field(description="Dollar risk per share (entry - stop)")
+    reward_risk: float | None = Field(default=None, description="Reward:risk ratio")
+    low_rr: bool = Field(description="True if reward_risk below minimum threshold")
+    data_unavailable: bool = Field(default=False, description="True if reward_risk cannot be computed")
+    expected_move_pct: float | None = Field(default=None, description="1-sigma expected move percentage")
+    vol_source: str = Field(description="Volatility source: 'options_iv' or 'historical'")
+    resistance: float = Field(description="Nearest overhead resistance price")
+    target_above_resistance: bool = Field(description="True if target1 exceeds resistance")
+    resistance_data_limited: bool = Field(
+        default=False, description="True if < 60 bars for resistance"
+    )
+    earnings_in_window: str | None = Field(
+        default=None, description="Earnings date YYYY-MM-DD if within horizon"
+    )
+    prob_hit_target1: float | None = Field(
+        default=None, description="Calibrated probability 0.0-1.0"
+    )
+    calibration_available: bool = Field(
+        default=False, description="True if calibration bucket found"
+    )
+    analyst_target: float | None = Field(default=None, description="Analyst mean price target")
+    analyst_low: float | None = Field(default=None, description="Analyst lowest price target")
+    analyst_high: float | None = Field(default=None, description="Analyst highest price target")
+
+
 class TickerScore(BaseModel):
     """Scored ticker with details."""
 
@@ -75,6 +110,10 @@ class TickerScore(BaseModel):
         default=None,
         description="Per-component point contributions (trend/momentum/strength/confirmation/"
         "stage_pattern and extension/climax/divergence penalties)",
+    )
+    trade_plan: TradePlanResponse | None = Field(
+        default=None,
+        description="Trade plan for BUY candidates (null for non-candidates or plan failure)",
     )
 
     class Config:

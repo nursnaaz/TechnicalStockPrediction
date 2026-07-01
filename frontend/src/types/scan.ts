@@ -2,6 +2,31 @@
 
 export type MarketRegime = "bullish" | "bearish" | "neutral";
 
+export interface TradePlan {
+  entry: number;
+  stop: number;
+  stop_pct: number;
+  target1: number;
+  target1_pct: number;
+  target2: number;
+  target2_pct: number;
+  risk_per_share: number;
+  reward_risk: number | null;
+  low_rr: boolean;
+  data_unavailable: boolean;
+  expected_move_pct: number | null;
+  vol_source: "options_iv" | "historical";
+  resistance: number;
+  target_above_resistance: boolean;
+  resistance_data_limited: boolean;
+  earnings_in_window: string | null;
+  prob_hit_target1: number | null;
+  calibration_available: boolean;
+  analyst_target: number | null;
+  analyst_low: number | null;
+  analyst_high: number | null;
+}
+
 export interface IndicatorSignals {
   price_above_sma50: boolean;
   price_above_ema20: boolean;
@@ -30,6 +55,8 @@ export interface TickerScore {
   is_candidate?: boolean | null;
   // Per-component point contributions (trend/momentum/strength/confirmation/stage_pattern/penalties).
   score_breakdown?: Record<string, number> | null;
+  // Trade plan for BUY candidates (null for non-candidates or plan failure)
+  trade_plan?: TradePlan | null;
 }
 
 export interface ScanMetadata {
