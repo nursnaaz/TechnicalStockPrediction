@@ -392,9 +392,14 @@ class MassiveDataClient:
         return items
 
     async def get_insider_trades(self, ticker: str, limit: int = 10) -> list[dict] | None:
-        """SEC Form 4 insider transactions (`/stocks/filings/vX/form-4`)."""
+        """SEC Form 4 insider transactions (`/stocks/filings/vX/form-4`).
+
+        NB: this endpoint filters by ``tickers`` (an array-contains filter), NOT
+        ``ticker`` — passing ``ticker`` is silently ignored and returns market-wide
+        filings. Sorted newest-first by filing_date (the endpoint default).
+        """
         results = await self._results(
-            "/stocks/filings/vX/form-4", {"ticker": ticker, "limit": limit}, ticker
+            "/stocks/filings/vX/form-4", {"tickers": ticker, "limit": limit}, ticker
         )
         if results is None:
             return None

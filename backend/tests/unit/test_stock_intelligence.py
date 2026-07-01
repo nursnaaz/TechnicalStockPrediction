@@ -173,10 +173,16 @@ async def test_get_insider_trades_parses_fields():
         "transaction_shares": "100", "transaction_price_per_share": "44.25",
         "transaction_value": "4425",
     }]}
-    with patch.object(client, "_request_with_retry", AsyncMock(return_value=_resp(body))):
+    spy = AsyncMock(return_value=_resp(body))
+    with patch.object(client, "_request_with_retry", spy):
         out = await client.get_insider_trades("AAPL")
     t = out[0]
     assert t["action"] == "buy" and t["shares"] == 100.0 and t["value"] == 4425.0
+    # Form-4 filters by `tickers` (array-contains); `ticker` is silently ignored
+    # by the endpoint and would return market-wide filings. Guard against regressing.
+    endpoint, params = spy.call_args.args[0], spy.call_args.args[1]
+    assert endpoint == "/stocks/filings/vX/form-4"
+    assert params.get("tickers") == "AAPL" and "ticker" not in params
     await client.close()
 
 

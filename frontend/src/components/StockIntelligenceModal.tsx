@@ -165,8 +165,8 @@ export default function StockIntelligenceModal({ ticker, onClose }: Props) {
                   <Badge color={t.action === "buy" ? "green" : t.action === "sell" ? "red" : "grey"}>
                     {t.action}
                   </Badge>{" "}
-                  {t.owner_name} · {t.shares?.toLocaleString()} sh @ ${t.price?.toFixed(2)} ·{" "}
-                  {t.transaction_date}
+                  {t.owner_name} · {t.shares?.toLocaleString()} sh
+                  {t.price != null ? ` @ $${t.price.toFixed(2)}` : ""} · {t.transaction_date}
                 </Box>
               ))}
             </SpaceBetween>
