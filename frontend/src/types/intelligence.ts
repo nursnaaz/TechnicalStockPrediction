@@ -30,6 +30,13 @@ export interface ShortInterest {
   days_to_cover: number | null;
 }
 
+export interface ShortVolume {
+  date: string | null;
+  short_volume: number | null;
+  total_volume: number | null;
+  short_volume_ratio: number | null; // % of daily volume sold short
+}
+
 export interface Dividend {
   ex_dividend_date: string | null;
   pay_date: string | null;
@@ -80,6 +87,7 @@ export interface StockIntelligence {
   news: NewsItem[];
   insider_trades: InsiderTrade[];
   short_interest: ShortInterest | null;
+  short_volume: ShortVolume | null;
   dividends: Dividend[];
   macro: Macro | null;
   analyst: AnalystConsensus | null;

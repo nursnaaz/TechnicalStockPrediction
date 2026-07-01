@@ -107,13 +107,22 @@ export default function StockIntelligenceModal({ ticker, onClose }: Props) {
           </Section>
 
           {/* Key metrics grid */}
-          <ColumnLayout columns={3} variant="text-grid">
+          <ColumnLayout columns={4} variant="text-grid">
             <Section title="Short Interest" unavailable={un("short_interest")} empty={!data.short_interest}>
               {data.short_interest && (
                 <SpaceBetween size="xxs">
                   <Box><b>{(data.short_interest.days_to_cover ?? 0).toFixed(2)}</b> days to cover</Box>
                   <Box variant="small">{((data.short_interest.short_interest ?? 0) / 1e6).toFixed(1)}M shares short</Box>
                   <Box variant="small" color="text-status-inactive">as of {data.short_interest.settlement_date}</Box>
+                </SpaceBetween>
+              )}
+            </Section>
+
+            <Section title="Short Volume" unavailable={un("short_volume")} empty={!data.short_volume}>
+              {data.short_volume && (
+                <SpaceBetween size="xxs">
+                  <Box><b>{(data.short_volume.short_volume_ratio ?? 0).toFixed(1)}%</b> of volume sold short</Box>
+                  <Box variant="small" color="text-status-inactive">as of {data.short_volume.date}</Box>
                 </SpaceBetween>
               )}
             </Section>

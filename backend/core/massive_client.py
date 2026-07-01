@@ -434,6 +434,27 @@ class MassiveDataClient:
             "days_to_cover": _num(r.get("days_to_cover")),
         }
 
+    async def get_short_volume(self, ticker: str) -> dict | None:
+        """Latest daily short-sale volume (`/stocks/v1/short-volume`).
+
+        Included in all Stocks plans. `short_volume_ratio` = % of daily volume sold
+        short — a fast, daily read on bearish pressure (complements short interest).
+        """
+        results = await self._results(
+            "/stocks/v1/short-volume",
+            {"ticker": ticker, "limit": 1, "sort": "date.desc"},
+            ticker,
+        )
+        if not results:
+            return None
+        r = results[0]
+        return {
+            "date": r.get("date"),
+            "short_volume": _num(r.get("short_volume")),
+            "total_volume": _num(r.get("total_volume")),
+            "short_volume_ratio": _num(r.get("short_volume_ratio")),
+        }
+
     async def get_dividends(self, ticker: str, limit: int = 4) -> list[dict] | None:
         """Recent / upcoming dividends (`/stocks/v1/dividends`)."""
         results = await self._results(
